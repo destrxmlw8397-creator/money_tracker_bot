@@ -15,4 +15,3 @@ services:
         sync: false
       - key: PORT
         value: 10000
-    pythonVersion: "3.12"

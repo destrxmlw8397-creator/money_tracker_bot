@@ -1,13 +1,13 @@
 import json
 from typing import List, Dict, Optional, Any
-from bot.database.connection import get_db_connection
+from bot.database.connection import get_db_connection, return_connection
 from bot.config import Config
 import logging
 
 logger = logging.getLogger(__name__)
 
 class BalanceRepository:
-    """Balance data repository"""
+    """Balance data repository - MongoDB থেকে PostgreSQL এ রূপান্তরিত"""
     
     @staticmethod
     def get_monthly_data(user_id: int, month: str) -> Dict[str, Any]:
@@ -46,7 +46,7 @@ class BalanceRepository:
         }
         
         cursor.close()
-        conn.close()
+        return_connection(conn)
         return data
     
     @staticmethod
@@ -66,7 +66,7 @@ class BalanceRepository:
         
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def add_transaction(user_id: int, month: str, transaction: Dict, inc_income: float, inc_expense: float):
@@ -88,7 +88,7 @@ class BalanceRepository:
         
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def get_all_months(user_id: int) -> List[Dict]:
@@ -113,7 +113,7 @@ class BalanceRepository:
             all_data.append(data)
         
         cursor.close()
-        conn.close()
+        return_connection(conn)
         return all_data
     
     @staticmethod
@@ -124,7 +124,7 @@ class BalanceRepository:
         cursor.execute("DELETE FROM balance_data WHERE user_id=%s", (user_id,))
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def delete_month_data(user_id: int, month: str):
@@ -138,11 +138,11 @@ class BalanceRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
 
 
 class DebtRepository:
-    """Debt data repository"""
+    """Debt data repository - MongoDB থেকে PostgreSQL এ রূপান্তরিত"""
     
     @staticmethod
     def get_all(user_id: int) -> List[Dict]:
@@ -152,7 +152,7 @@ class DebtRepository:
         cursor.execute("SELECT * FROM debt_data WHERE user_id=%s", (user_id,))
         rows = cursor.fetchall()
         cursor.close()
-        conn.close()
+        return_connection(conn)
         
         return [{'id': r[0], 'user_id': r[1], 'name': r[2], 'type': r[3], 'amount': r[4]} for r in rows]
     
@@ -167,7 +167,7 @@ class DebtRepository:
         )
         rows = cursor.fetchall()
         cursor.close()
-        conn.close()
+        return_connection(conn)
         
         return [{'id': r[0], 'user_id': r[1], 'name': r[2], 'type': r[3], 'amount': r[4]} for r in rows]
     
@@ -182,7 +182,7 @@ class DebtRepository:
         )
         names = [row[0] for row in cursor.fetchall()]
         cursor.close()
-        conn.close()
+        return_connection(conn)
         return names
     
     @staticmethod
@@ -210,7 +210,7 @@ class DebtRepository:
         
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def update_amount(debt_id: int, new_amount: float):
@@ -223,7 +223,7 @@ class DebtRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def get_by_id(debt_id: int) -> Optional[Dict]:
@@ -233,7 +233,7 @@ class DebtRepository:
         cursor.execute("SELECT * FROM debt_data WHERE id=%s", (debt_id,))
         row = cursor.fetchone()
         cursor.close()
-        conn.close()
+        return_connection(conn)
         
         if row:
             return {'id': row[0], 'user_id': row[1], 'name': row[2], 'type': row[3], 'amount': row[4]}
@@ -250,7 +250,7 @@ class DebtRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def delete_user_data(user_id: int):
@@ -260,7 +260,7 @@ class DebtRepository:
         cursor.execute("DELETE FROM debt_data WHERE user_id=%s", (user_id,))
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
 
 
 class DebtHistoryRepository:
@@ -277,10 +277,10 @@ class DebtHistoryRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
-    def get_by_name(user_id: int, name: str, limit: int = 10, offset: int = 0) -> List[Dict]:
+    def get_by_name(user_id: int, name: str, limit: int = 10, offset: int = 0) -> tuple:
         """Get history by name"""
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -290,7 +290,6 @@ class DebtHistoryRepository:
         )
         rows = cursor.fetchall()
         
-        # Get total count
         cursor.execute(
             "SELECT COUNT(*) FROM debt_history WHERE user_id=%s AND name=%s",
             (user_id, name)
@@ -298,7 +297,7 @@ class DebtHistoryRepository:
         total = cursor.fetchone()[0]
         
         cursor.close()
-        conn.close()
+        return_connection(conn)
         
         history = [{'id': r[0], 'user_id': r[1], 'name': r[2], 'amount': r[3], 'date': r[4], 'time': r[5]} for r in rows]
         return history, total
@@ -314,7 +313,7 @@ class DebtHistoryRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def delete_user_data(user_id: int):
@@ -324,7 +323,7 @@ class DebtHistoryRepository:
         cursor.execute("DELETE FROM debt_history WHERE user_id=%s", (user_id,))
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
 
 
 class OutstandingRepository:
@@ -341,7 +340,7 @@ class OutstandingRepository:
         )
         rows = cursor.fetchall()
         cursor.close()
-        conn.close()
+        return_connection(conn)
         
         return [{'id': r[0], 'user_id': r[1], 'name': r[2], 'type': r[3], 'amount': r[4]} for r in rows]
     
@@ -356,7 +355,7 @@ class OutstandingRepository:
         )
         names = [row[0] for row in cursor.fetchall()]
         cursor.close()
-        conn.close()
+        return_connection(conn)
         return names
     
     @staticmethod
@@ -384,7 +383,7 @@ class OutstandingRepository:
         
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def update_amount(out_id: int, new_amount: float):
@@ -397,7 +396,7 @@ class OutstandingRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def get_by_id(out_id: int) -> Optional[Dict]:
@@ -407,7 +406,7 @@ class OutstandingRepository:
         cursor.execute("SELECT * FROM outstanding_data WHERE id=%s", (out_id,))
         row = cursor.fetchone()
         cursor.close()
-        conn.close()
+        return_connection(conn)
         
         if row:
             return {'id': row[0], 'user_id': row[1], 'name': row[2], 'type': row[3], 'amount': row[4]}
@@ -421,7 +420,7 @@ class OutstandingRepository:
         cursor.execute("SELECT * FROM outstanding_data WHERE user_id=%s", (user_id,))
         rows = cursor.fetchall()
         cursor.close()
-        conn.close()
+        return_connection(conn)
         
         return [{'id': r[0], 'user_id': r[1], 'name': r[2], 'type': r[3], 'amount': r[4]} for r in rows]
     
@@ -436,7 +435,7 @@ class OutstandingRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def delete_user_data(user_id: int):
@@ -446,7 +445,7 @@ class OutstandingRepository:
         cursor.execute("DELETE FROM outstanding_data WHERE user_id=%s", (user_id,))
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
 
 
 class OutstandingHistoryRepository:
@@ -463,7 +462,7 @@ class OutstandingHistoryRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def get_by_name(user_id: int, name: str, limit: int = 10, offset: int = 0) -> List[Dict]:
@@ -476,7 +475,7 @@ class OutstandingHistoryRepository:
         )
         rows = cursor.fetchall()
         cursor.close()
-        conn.close()
+        return_connection(conn)
         
         return [{'id': r[0], 'user_id': r[1], 'name': r[2], 'amount': r[3], 'date': r[4], 'time': r[5]} for r in rows]
     
@@ -491,7 +490,7 @@ class OutstandingHistoryRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def delete_user_data(user_id: int):
@@ -501,7 +500,7 @@ class OutstandingHistoryRepository:
         cursor.execute("DELETE FROM outstanding_history WHERE user_id=%s", (user_id,))
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
 
 
 class GoalRepository:
@@ -515,7 +514,7 @@ class GoalRepository:
         cursor.execute("SELECT * FROM savings_goals WHERE user_id=%s", (user_id,))
         rows = cursor.fetchall()
         cursor.close()
-        conn.close()
+        return_connection(conn)
         
         return [{'user_id': r[0], 'name': r[1], 'target': r[2], 'saved': r[3]} for r in rows]
     
@@ -530,7 +529,7 @@ class GoalRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def add_savings(user_id: int, name: str, amount: float):
@@ -543,7 +542,24 @@ class GoalRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
+    
+    @staticmethod
+    def get_by_name(user_id: int, name: str) -> Optional[Dict]:
+        """Get goal by name"""
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM savings_goals WHERE user_id=%s AND name=%s",
+            (user_id, name)
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        return_connection(conn)
+        
+        if row:
+            return {'user_id': row[0], 'name': row[1], 'target': row[2], 'saved': row[3]}
+        return None
     
     @staticmethod
     def delete_by_name(user_id: int, name: str):
@@ -556,7 +572,7 @@ class GoalRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def delete_user_data(user_id: int):
@@ -566,7 +582,7 @@ class GoalRepository:
         cursor.execute("DELETE FROM savings_goals WHERE user_id=%s", (user_id,))
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
 
 
 class GoalHistoryRepository:
@@ -583,7 +599,7 @@ class GoalHistoryRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def get_by_name(user_id: int, name: str, limit: int = 10, offset: int = 0) -> List[Dict]:
@@ -596,7 +612,7 @@ class GoalHistoryRepository:
         )
         rows = cursor.fetchall()
         cursor.close()
-        conn.close()
+        return_connection(conn)
         
         return [{'id': r[0], 'user_id': r[1], 'name': r[2], 'amount': r[3], 'date': r[4], 'time': r[5]} for r in rows]
     
@@ -611,7 +627,7 @@ class GoalHistoryRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
     
     @staticmethod
     def delete_user_data(user_id: int):
@@ -621,7 +637,7 @@ class GoalHistoryRepository:
         cursor.execute("DELETE FROM goal_history WHERE user_id=%s", (user_id,))
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)
 
 
 class UserRepository:
@@ -638,7 +654,7 @@ class UserRepository:
         )
         row = cursor.fetchone()
         cursor.close()
-        conn.close()
+        return_connection(conn)
         return row[0] if row else "bn"
     
     @staticmethod
@@ -652,4 +668,4 @@ class UserRepository:
         )
         conn.commit()
         cursor.close()
-        conn.close()
+        return_connection(conn)

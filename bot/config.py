@@ -15,10 +15,10 @@ class Config:
     DATABASE_URL = os.getenv('DATABASE_URL')
     
     # Server Config
-    PORT = int(os.environ.get("PORT", 8080))
+    PORT = int(os.environ.get("PORT", 10000))
     
     # App Config
-    TIMEZONE = os.getenv('TIMEZONE', 'Asia/Dhaka')
+    TIMEZONE = 'Asia/Dhaka'
     ITEMS_PER_PAGE = 10
     TEMP_DATA_EXPIRY_HOURS = 12
     

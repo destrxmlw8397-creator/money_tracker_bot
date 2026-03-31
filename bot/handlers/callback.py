@@ -11,7 +11,7 @@ from bot.database.repositories import (
     OutstandingRepository, OutstandingHistoryRepository,
     GoalRepository, GoalHistoryRepository
 )
-from services.transaction_service import (
+from bot.services.transaction_service import (
     process_debt_entry_with_balance, process_debt_repayment,
     update_user_db, update_wallet_only, get_user_monthly_data,
     get_lifetime_wallet_balance, generate_pdf

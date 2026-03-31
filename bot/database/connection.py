@@ -1,16 +1,18 @@
 import os
 import psycopg2
-from psycopg2 import sql, extras
-from bot.config import Config
+from psycopg2 import pool, extras
 import logging
 import time
+import json
+from bot.config import Config
 
 logger = logging.getLogger(__name__)
 
 class Database:
-    """Database Connection Manager with retry logic for Render"""
+    """Database connection manager with connection pooling"""
     
     _instance = None
+    _pool = None
     
     def __new__(cls):
         if cls._instance is None:
@@ -19,46 +21,53 @@ class Database:
         return cls._instance
     
     def _initialize(self):
-        """Initialize database connection with retry"""
-        self.conn = None
-        self._connect_with_retry()
-    
-    def _connect_with_retry(self, max_retries=5, delay=5):
-        """Connect to database with retry logic"""
+        """Initialize connection pool with retry logic"""
+        max_retries = 5
+        retry_delay = 5
+        
         for attempt in range(max_retries):
             try:
-                self.conn = psycopg2.connect(Config.DATABASE_URL, sslmode='require')
-                self.conn.autocommit = False
-                logger.info(f"✅ Database connected successfully (attempt {attempt + 1})")
+                self._pool = psycopg2.pool.SimpleConnectionPool(
+                    1, 20,
+                    dsn=Config.DATABASE_URL,
+                    sslmode='require'
+                )
+                logger.info(f"✅ Database pool created (attempt {attempt + 1})")
                 return
             except Exception as e:
-                logger.warning(f"Database connection attempt {attempt + 1} failed: {e}")
+                logger.warning(f"DB connection attempt {attempt + 1} failed: {e}")
                 if attempt < max_retries - 1:
-                    time.sleep(delay)
+                    time.sleep(retry_delay)
                 else:
                     logger.error("❌ All database connection attempts failed")
                     raise
     
     def get_connection(self):
-        """Get database connection, reconnect if closed"""
-        try:
-            if self.conn is None or self.conn.closed:
-                self._connect_with_retry()
-            return self.conn
-        except Exception as e:
-            logger.error(f"Failed to get database connection: {e}")
-            raise
+        """Get connection from pool"""
+        if self._pool is None:
+            self._initialize()
+        return self._pool.getconn()
+    
+    def put_connection(self, conn):
+        """Return connection to pool"""
+        if self._pool:
+            self._pool.putconn(conn)
     
     def close(self):
-        """Close database connection"""
-        if hasattr(self, 'conn') and self.conn and not self.conn.closed:
-            self.conn.close()
-            logger.info("Database connection closed")
+        """Close all connections"""
+        if self._pool:
+            self._pool.closeall()
+            logger.info("Database pool closed")
+
+_db = Database()
 
 def get_db_connection():
-    """Get database connection (convenience function)"""
-    db = Database()
-    return db.get_connection()
+    """Get database connection"""
+    return _db.get_connection()
+
+def return_connection(conn):
+    """Return connection to pool"""
+    _db.put_connection(conn)
 
 def init_db():
     """Initialize database tables and indexes"""
@@ -66,7 +75,7 @@ def init_db():
     cursor = conn.cursor()
     
     try:
-        # Create tables (same as before)
+        # Create tables
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS balance_data (
                 user_id BIGINT NOT NULL,
@@ -170,3 +179,4 @@ def init_db():
         raise
     finally:
         cursor.close()
+        _db.put_connection(conn)

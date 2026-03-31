@@ -1,27 +1,55 @@
+# bot/main.py - Fixed version
+
 import os
 import logging
 import threading
 import asyncio
+from datetime import datetime
+from flask import Flask, jsonify
 from telethon import TelegramClient, events
 from bot.config import Config
-from bot.database.connection import init_db
+from bot.database.connection import init_db, get_db_connection
 from bot.utils.logger import setup_logger
 from bot.handlers.start import StartHandler
 from bot.handlers.balance import BalanceHandler
-from bot.handlers.report import ReportHandler
-from bot.handlers.history import HistoryHandler
-from bot.handlers.debt import DebtHandler
-from bot.handlers.goal import GoalHandler
-from bot.handlers.wallet import WalletHandler
-from bot.handlers.pdf import PDFHandler
-from bot.handlers.transfer import TransferHandler
 from bot.handlers.callback import CallbackHandler
 from bot.handlers.message import MessageHandler
-from bot.utils.temp_storage import temp_storage
 
-# Setup logging
+# Setup
 setup_logger()
 logger = logging.getLogger(__name__)
+
+# Flask app for health checks
+app = Flask(__name__)
+
+@app.route('/')
+def health_check():
+    """Health check endpoint for Render"""
+    try:
+        # Test database connection
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+        cursor.close()
+        conn.close()
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+        logger.error(f"Health check DB error: {e}")
+    
+    return jsonify({
+        "status": "online",
+        "service": "Money Tracker Bot",
+        "timestamp": datetime.now().isoformat(),
+        "database": db_status,
+        "version": "1.0.0"
+    })
+
+@app.route('/health')
+def health():
+    """Simple health check"""
+    return "OK", 200
 
 class MoneyTrackerBot:
     """Main Bot Class"""
@@ -32,17 +60,10 @@ class MoneyTrackerBot:
         # Initialize handlers
         self.start_handler = StartHandler(self.client)
         self.balance_handler = BalanceHandler(self.client)
-        self.report_handler = ReportHandler(self.client)
-        self.history_handler = HistoryHandler(self.client)
-        self.debt_handler = DebtHandler(self.client)
-        self.goal_handler = GoalHandler(self.client)
-        self.wallet_handler = WalletHandler(self.client)
-        self.pdf_handler = PDFHandler(self.client)
-        self.transfer_handler = TransferHandler(self.client)
         self.callback_handler = CallbackHandler(self.client)
         self.message_handler = MessageHandler(self.client)
         
-        logger.info("✅ Bot initialized successfully")
+        logger.info("Bot initialized successfully")
     
     async def on_startup(self):
         """Actions to run on startup"""
@@ -55,8 +76,8 @@ class MoneyTrackerBot:
             
             # Start bot
             await self.client.start(bot_token=Config.BOT_TOKEN)
+            logger.info("Bot is ready to serve!")
             
-            logger.info("🚀 Bot is ready to serve!")
         except Exception as e:
             logger.error(f"Startup error: {e}")
             raise
@@ -68,57 +89,9 @@ class MoneyTrackerBot:
         async def start_handler(event):
             await self.start_handler.handle(event)
         
-        @self.client.on(events.NewMessage(pattern='/lang'))
-        async def lang_handler(event):
-            await self.start_handler.handle_language(event)
-        
         @self.client.on(events.NewMessage(pattern='/balance'))
         async def balance_handler(event):
             await self.balance_handler.show_balance(event)
-        
-        @self.client.on(events.NewMessage(pattern='/report'))
-        async def report_handler(event):
-            await self.report_handler.show_report_options(event)
-        
-        @self.client.on(events.NewMessage(pattern='/history'))
-        async def history_handler(event):
-            await self.history_handler.show_history(event)
-        
-        @self.client.on(events.NewMessage(pattern='/debt'))
-        async def debt_handler(event):
-            await self.debt_handler.show_debt_menu(event)
-        
-        @self.client.on(events.NewMessage(pattern='/goal'))
-        async def goal_handler(event):
-            await self.goal_handler.show_goal_menu(event)
-        
-        @self.client.on(events.NewMessage(pattern='/trns_money'))
-        async def transfer_handler(event):
-            await self.transfer_handler.start_transfer(event)
-        
-        @self.client.on(events.NewMessage(pattern='/pdf'))
-        async def pdf_handler(event):
-            await self.pdf_handler.show_pdf_options(event)
-        
-        @self.client.on(events.NewMessage(pattern='/setbudget'))
-        async def set_budget_handler(event):
-            await self.wallet_handler.set_budget(event)
-        
-        @self.client.on(events.NewMessage(pattern='/addwallet'))
-        async def add_wallet_handler(event):
-            await self.wallet_handler.add_wallet(event)
-        
-        @self.client.on(events.NewMessage(pattern='/delwallet'))
-        async def delete_wallet_handler(event):
-            await self.wallet_handler.delete_wallet(event)
-        
-        @self.client.on(events.NewMessage(pattern='/undo'))
-        async def undo_handler(event):
-            await self.message_handler.undo_last_entry(event)
-        
-        @self.client.on(events.NewMessage(pattern='/reset'))
-        async def reset_handler(event):
-            await self.message_handler.reset_data(event)
         
         @self.client.on(events.CallbackQuery)
         async def callback_handler(event):
@@ -132,13 +105,13 @@ class MoneyTrackerBot:
         """Run bot asynchronously"""
         await self.on_startup()
         self.register_handlers()
-        logger.info("🤖 Bot is running...")
+        logger.info("Bot is running...")
         await self.client.run_until_disconnected()
     
     def run(self):
         """Run the bot"""
-        # Start health check server
-        self._start_health_server()
+        # Start Flask server in background
+        self._start_flask()
         
         # Run bot
         loop = asyncio.new_event_loop()
@@ -147,47 +120,24 @@ class MoneyTrackerBot:
             loop.run_until_complete(self.run_async())
         except KeyboardInterrupt:
             logger.info("Bot stopped by user")
+        except Exception as e:
+            logger.error(f"Bot error: {e}")
         finally:
             loop.close()
     
-    def _start_health_server(self):
-        """Start health check HTTP server for Render"""
-        from http.server import HTTPServer, BaseHTTPRequestHandler
-        
-        class HealthCheckHandler(BaseHTTPRequestHandler):
-            def do_GET(self):
-                self.send_response(200)
-                self.send_header('Content-type', 'text/html')
-                self.end_headers()
-                self.wfile.write(b"""
-                <!DOCTYPE html>
-                <html>
-                <head><title>Money Tracker Bot</title></head>
-                <body>
-                    <h1>✅ Money Tracker Bot is Online!</h1>
-                    <p>Status: Running</p>
-                    <p>Time: """ + str(datetime.now()).encode() + b"""</p>
-                </body>
-                </html>
-                """)
-            
-            def do_HEAD(self):
-                self.send_response(200)
-                self.end_headers()
-        
-        def run_server():
+    def _start_flask(self):
+        """Start Flask server for health checks"""
+        def run_flask():
             try:
                 port = int(os.environ.get("PORT", 10000))
-                server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
-                logger.info(f"🌐 Health check server running on port {port}")
-                server.serve_forever()
+                app.run(host='0.0.0.0', port=port, debug=False)
             except Exception as e:
-                logger.error(f"Health server error: {e}")
+                logger.error(f"Flask server error: {e}")
         
-        thread = threading.Thread(target=run_server, daemon=True)
+        thread = threading.Thread(target=run_flask, daemon=True)
         thread.start()
+        logger.info(f"Health check server starting on port {os.environ.get('PORT', 10000)}")
 
 if __name__ == "__main__":
-    from datetime import datetime
     bot = MoneyTrackerBot()
     bot.run()

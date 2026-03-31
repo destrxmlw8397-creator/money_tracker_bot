@@ -1,14 +1,16 @@
 import re
+import math
 from telethon import Button
 from bot.handlers.base import BaseHandler
 from bot.utils.translations import t
 from bot.utils.helpers import get_current_month, get_current_date, get_current_time, get_user_now
 from bot.utils.temp_storage import store_temp_data
-from bot.database.repositories import BalanceRepository, OutstandingRepository
+from bot.database.repositories import BalanceRepository, OutstandingRepository, GoalRepository, GoalHistoryRepository
 from bot.services.transaction_service import (
     update_user_db, get_user_monthly_data, get_lifetime_wallet_balance,
     generate_pdf, show_wallets_for_debt, show_wallets_for_repayment,
-    show_wallets_for_out_repayment
+    show_wallets_for_out_repayment, process_debt_entry_with_balance,
+    process_debt_repayment
 )
 
 class MessageHandler(BaseHandler):
@@ -19,10 +21,11 @@ class MessageHandler(BaseHandler):
         text = event.text.strip()
         
         if text.startswith('/'):
+            # Commands are handled separately, but /reset and /undo are here
             if text == '/reset':
-                btns = [[Button.inline(t(uid, 'yes'), b"conf_reset_full"),
-                        Button.inline(t(uid, 'no'), b"conf_no")]]
-                await event.respond(t(uid, 'reset_confirm'), buttons=btns)
+                await self.reset_data(event)
+            elif text == '/undo':
+                await self.undo_last_entry(event)
             return
         
         if uid in self.user_states:
@@ -51,6 +54,57 @@ class MessageHandler(BaseHandler):
             except Exception as e:
                 print(f"Error: {e}")
     
+    async def undo_last_entry(self, event):
+        """Handle /undo command - delete last entry"""
+        uid = event.sender_id
+        month_key = get_current_month(event)
+        
+        try:
+            data = get_user_monthly_data(uid, month_key)
+            
+            if not data or not data.get('history'):
+                await event.respond(t(uid, 'no_history'))
+                return
+            
+            # Pop last entry
+            last = data['history'].pop()
+            wallet = last.get('wallet', 'Cash')
+            new_wallets = data['wallets']
+            new_wallets[wallet] = new_wallets.get(wallet, 0.0) - last['amount']
+            
+            is_debt = last.get("is_debt_logic", False)
+            is_out_rep = last.get("is_outstanding_repay", False)
+            
+            # Update totals
+            if not is_debt or is_out_rep:
+                if last['amount'] > 0:
+                    data['total_income'] -= last['amount']
+                else:
+                    data['total_expense'] -= abs(last['amount'])
+            
+            data['wallets'] = new_wallets
+            
+            # Save to database
+            BalanceRepository.update_monthly_data(uid, month_key, data)
+            
+            await event.respond(t(uid, 'undo_success', last.get('category', 'Unknown')))
+            
+        except Exception as e:
+            print(f"Undo error: {e}")
+            await event.respond(t(uid, 'invalid_input'))
+    
+    async def reset_data(self, event):
+        """Handle /reset command - show confirmation options"""
+        uid = event.sender_id
+        month_key = get_current_month(event)
+        
+        buttons = [
+            [Button.inline(t(uid, 'reset_month_confirm', month_key), b"reset_month")],
+            [Button.inline(t(uid, 'reset_all_success'), b"reset_all")],
+            [Button.inline(t(uid, 'cancel'), b"cancel_state")]
+        ]
+        await event.respond(t(uid, 'reset_confirm'), buttons=buttons)
+    
     async def _handle_state(self, event, uid, text):
         state = self.user_states[uid]
         
@@ -63,6 +117,7 @@ class MessageHandler(BaseHandler):
                 amt = float(text)
                 user_time = get_user_now(event)
                 OutstandingRepository.add_or_update(uid, name, dtype, amt)
+                from bot.database.repositories import OutstandingHistoryRepository
                 OutstandingHistoryRepository.add(
                     uid, name, amt,
                     get_current_date(event), get_current_time(event)
@@ -79,6 +134,7 @@ class MessageHandler(BaseHandler):
                 name, amt = parts[0], float(parts[1])
                 user_time = get_user_now(event)
                 OutstandingRepository.add_or_update(uid, name, dtype, amt)
+                from bot.database.repositories import OutstandingHistoryRepository
                 OutstandingHistoryRepository.add(
                     uid, name, amt,
                     get_current_date(event), get_current_time(event)
@@ -123,6 +179,7 @@ class MessageHandler(BaseHandler):
                 file = generate_pdf(uid, text)
                 if file:
                     await self.client.send_file(event.chat_id, file, caption=t(uid, 'pdf_sent', text))
+                    import os
                     os.remove(file)
                 else:
                     await event.respond(t(uid, 'pdf_no_data_month'))
@@ -134,6 +191,7 @@ class MessageHandler(BaseHandler):
                 file = generate_pdf(uid, get_current_month(event), history_filter=text)
                 if file:
                     await self.client.send_file(event.chat_id, file, caption=t(uid, 'pdf_today_sent', text))
+                    import os
                     os.remove(file)
                 else:
                     await event.respond(t(uid, 'pdf_no_data'))

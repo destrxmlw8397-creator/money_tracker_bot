@@ -149,18 +149,15 @@ class MoneyTrackerBot:
         async def delete_wallet_handler(event):
             await self.wallet_handler.delete_wallet(event)
         
-        @self.client.on(events.NewMessage(pattern='/undo'))
-        async def undo_handler(event):
-            await self.message_handler.undo_last_entry(event)
-        
-        @self.client.on(events.NewMessage(pattern='/reset'))
-        async def reset_handler(event):
-            await self.message_handler.reset_data(event)
+        # ========== FIX: Removed duplicate /undo and /reset handlers ==========
+        # /undo and /reset are now handled only by the generic message handler below
+        # This prevents double processing of these commands
         
         @self.client.on(events.CallbackQuery)
         async def callback_handler(event):
             await self.callback_handler.handle(event)
         
+        # Generic message handler - handles all messages including /undo and /reset
         @self.client.on(events.NewMessage)
         async def message_handler(event):
             await self.message_handler.handle_message(event)

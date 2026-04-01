@@ -184,28 +184,26 @@ class ReportHandler(BaseHandler):
                 else:
                     daily_stats[d]['exp'] += abs(amt)
             
-            # Build message - ensure it's never empty
+            # Build message - ensure it's never empty and proper formatting
             month_title = t(user_id, 'monthly_report', month_key)
-            msg_lines = [f"📅 **{month_title}**", "━━━━━━━━━━━━━━━━━━"]
+            msg = f"📅 **{month_title}**\n━━━━━━━━━━━━━━━━━━\n"
             
             if not daily_stats:
-                msg_lines.append(t(user_id, 'no_transactions'))
+                msg += t(user_id, 'no_transactions') + "\n"
             else:
                 for date in sorted(daily_stats.keys(), reverse=True):
                     stats = daily_stats[date]
                     net = stats['inc'] - stats['exp']
-                    msg_lines.append(f"🗓 **{date}**")
-                    msg_lines.append(f"{t(user_id, 'total_income')}: {stats['inc']:.0f} | "
-                                    f"{t(user_id, 'total_expense')}: {stats['exp']:.0f} | "
-                                    f"{t(user_id, 'net')}: {net:.0f}")
-                    msg_lines.append("┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈")
+                    msg += f"🗓 **{date}**\n"
+                    msg += f"{t(user_id, 'total_income')}: {stats['inc']:.0f} | "
+                    msg += f"{t(user_id, 'total_expense')}: {stats['exp']:.0f} | "
+                    msg += f"{t(user_id, 'net')}: {net:.0f}\n"
+                    msg += "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n"
             
-            msg_lines.append(f"{t(user_id, 'total_income')}: {total_inc:.2f}")
-            msg_lines.append(f"{t(user_id, 'total_expense')}: {total_exp:.2f}")
-            msg_lines.append(f"{t(user_id, 'net')}: {total_inc - total_exp:.2f}")
-            msg_lines.append(f"{t(user_id, 'page')}: {page_index + 1} / {total_months}")
-            
-            msg = "\n".join(msg_lines)
+            msg += f"{t(user_id, 'total_income')}: {total_inc:.2f}\n"
+            msg += f"{t(user_id, 'total_expense')}: {total_exp:.2f}\n"
+            msg += f"{t(user_id, 'net')}: {total_inc - total_exp:.2f}\n"
+            msg += f"{t(user_id, 'page')}: {page_index + 1} / {total_months}"
             
             # Build buttons safely
             buttons = []
@@ -223,6 +221,10 @@ class ReportHandler(BaseHandler):
             # Back button - always add
             back_button = Button.inline(t(user_id, 'back'), b"rep_main")
             buttons.append([back_button])
+            
+            # Validate message is not empty
+            if not msg or not msg.strip():
+                msg = t(user_id, 'no_data')
             
             # Send or edit message with proper error handling
             if message_id:

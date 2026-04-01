@@ -20,9 +20,6 @@ class PDFHandler(BaseHandler):
     Generates PDF reports for current month, specific month, today, or specific date
     """
     
-    # Shared user states (will be set from message handler)
-    user_states = {}
-    
     async def show_pdf_options(self, event):
         """
         Handle /pdf command - show PDF options menu
@@ -73,8 +70,9 @@ class PDFHandler(BaseHandler):
         """
         user_id = event.sender_id
         
-        # Set state directly in this class's user_states
-        self.user_states[user_id] = "ST_PDF_MONTH"
+        # Set state in MessageHandler's user_states (shared)
+        from bot.handlers.message import MessageHandler
+        MessageHandler.user_states[user_id] = "ST_PDF_MONTH"
         
         logger.info(f"User {user_id} set to ST_PDF_MONTH state")
         
@@ -170,8 +168,9 @@ class PDFHandler(BaseHandler):
         """
         user_id = event.sender_id
         
-        # Set state directly in this class's user_states
-        self.user_states[user_id] = "ST_PDF_DATE"
+        # Set state in MessageHandler's user_states (shared)
+        from bot.handlers.message import MessageHandler
+        MessageHandler.user_states[user_id] = "ST_PDF_DATE"
         
         logger.info(f"User {user_id} set to ST_PDF_DATE state")
         
@@ -239,12 +238,13 @@ class PDFHandler(BaseHandler):
     
     def clear_user_state(self, user_id):
         """
-        Clear user state
+        Clear user state from MessageHandler's user_states
         
         Args:
             user_id: User ID
         """
-        self.user_states.pop(user_id, None)
+        from bot.handlers.message import MessageHandler
+        MessageHandler.user_states.pop(user_id, None)
     
     def is_valid_month(self, month_str):
         """
@@ -257,7 +257,6 @@ class PDFHandler(BaseHandler):
             bool: True if valid
         """
         from datetime import datetime
-        
         try:
             datetime.strptime(month_str, "%b-%Y")
             return True
@@ -275,7 +274,6 @@ class PDFHandler(BaseHandler):
             bool: True if valid
         """
         from datetime import datetime
-        
         try:
             datetime.strptime(date_str, "%d-%m-%Y")
             return True

@@ -165,13 +165,21 @@ class CallbackHandler(BaseHandler):
                            buttons=[Button.inline(t(user_id, 'back'), b"pdf_main")])
             return
 
-        # ==================== RESET HANDLERS ====================
-        elif data.startswith("reset_"):
-            mode = data.split("_")[1]
-            if mode == "month":
-                confirm_buttons = [[Button.inline(t(user_id, 'confirm'), b"conf_month_yes"),
-                                   Button.inline(t(user_id, 'no'), b"conf_no")]]
-                await event.edit(t(user_id, 'reset_month_confirm', month_key), buttons=confirm_buttons)
+        # ==================== RESET HANDLERS (FIXED) ====================
+        elif data == "reset_month":
+            confirm_buttons = [[
+                Button.inline(t(user_id, 'confirm'), b"conf_month_yes"),
+                Button.inline(t(user_id, 'no'), b"conf_no")
+            ]]
+            await event.edit(t(user_id, 'reset_month_confirm', month_key), buttons=confirm_buttons)
+            return
+
+        elif data == "reset_all":
+            confirm_buttons = [[
+                Button.inline(t(user_id, 'confirm'), b"conf_reset_full"),
+                Button.inline(t(user_id, 'no'), b"conf_no")
+            ]]
+            await event.edit(t(user_id, 'reset_all_confirm'), buttons=confirm_buttons)
             return
 
         elif data == "conf_no":
@@ -183,6 +191,10 @@ class CallbackHandler(BaseHandler):
         elif data == "conf_month_yes":
             BalanceRepository.delete_month_data(user_id, month_key)
             await event.edit(t(user_id, 'reset_month_success', month_key))
+            return
+
+        elif data == "conf_reset_full":
+            await self.reset_full_database(event)
             return
 
         # ==================== REPORT HANDLERS ====================
@@ -509,11 +521,6 @@ class CallbackHandler(BaseHandler):
                                buttons=[Button.inline(t(user_id, 'back'), b"dw_list_0")])
             else:
                 await event.answer(t(user_id, 'no_data'), alert=True)
-            return
-
-        # ==================== CONFIRMATION HANDLERS ====================
-        elif data == "conf_reset_full":
-            await self.reset_full_database(event)
             return
 
         # ==================== OUTSTANDING DELETE HANDLERS ====================

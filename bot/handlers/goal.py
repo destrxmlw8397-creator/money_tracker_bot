@@ -36,7 +36,8 @@ class GoalHandler(BaseHandler):
         ]
         
         # Check if it's a callback or a new command
-        if hasattr(event, 'edit') and not hasattr(event, 'message'):
+        # যদি event-এ edit মেথড থাকে এবং message না থাকে, তাহলে এটি কলব্যাক
+        if hasattr(event, 'edit') and hasattr(event, 'data'):
             # This is a callback (inline button press)
             try:
                 await event.edit(t(user_id, 'goal_manager'), buttons=buttons, parse_mode=None)
@@ -90,7 +91,10 @@ class GoalHandler(BaseHandler):
         
         # Always edit the existing message for callback
         try:
-            await event.edit(msg, buttons=buttons, parse_mode=None)
+            if hasattr(event, 'edit'):
+                await event.edit(msg, buttons=buttons, parse_mode=None)
+            else:
+                await event.respond(msg, buttons=buttons, parse_mode=None)
         except Exception as e:
             logger.error(f"Failed to edit goal list: {e}")
             await event.respond(msg, buttons=buttons, parse_mode=None)
@@ -125,7 +129,10 @@ class GoalHandler(BaseHandler):
         ])
         
         try:
-            await event.edit(t(user_id, 'goal_progress'), buttons=buttons, parse_mode=None)
+            if hasattr(event, 'edit'):
+                await event.edit(t(user_id, 'goal_progress'), buttons=buttons, parse_mode=None)
+            else:
+                await event.respond(t(user_id, 'goal_progress'), buttons=buttons, parse_mode=None)
         except Exception as e:
             logger.error(f"Failed to edit goal details: {e}")
             await event.respond(t(user_id, 'goal_progress'), buttons=buttons, parse_mode=None)
@@ -153,7 +160,10 @@ class GoalHandler(BaseHandler):
         buttons = [[Button.inline(t(user_id, 'back'), b"gdet_0")]]
         
         try:
-            await event.edit(msg, buttons=buttons, parse_mode=None)
+            if hasattr(event, 'edit'):
+                await event.edit(msg, buttons=buttons, parse_mode=None)
+            else:
+                await event.respond(msg, buttons=buttons, parse_mode=None)
         except Exception as e:
             logger.error(f"Failed to edit goal history: {e}")
             await event.respond(msg, buttons=buttons, parse_mode=None)
@@ -172,11 +182,18 @@ class GoalHandler(BaseHandler):
         MessageHandler.user_states[event.sender_id] = "ST_NEW_GOAL"
         
         try:
-            await event.edit(
-                t(user_id, 'enter_goal'),
-                buttons=[Button.inline(t(user_id, 'back'), b"goal_main")],
-                parse_mode=None
-            )
+            if hasattr(event, 'edit'):
+                await event.edit(
+                    t(user_id, 'enter_goal'),
+                    buttons=[Button.inline(t(user_id, 'back'), b"goal_main")],
+                    parse_mode=None
+                )
+            else:
+                await event.respond(
+                    t(user_id, 'enter_goal'),
+                    buttons=[Button.inline(t(user_id, 'back'), b"goal_main")],
+                    parse_mode=None
+                )
         except Exception as e:
             logger.error(f"Failed to edit add goal prompt: {e}")
             await event.respond(
@@ -205,11 +222,18 @@ class GoalHandler(BaseHandler):
         ]
         
         try:
-            await event.edit(
-                t(user_id, 'enter_save_amount', goal_name),
-                buttons=buttons,
-                parse_mode=None
-            )
+            if hasattr(event, 'edit'):
+                await event.edit(
+                    t(user_id, 'enter_save_amount', goal_name),
+                    buttons=buttons,
+                    parse_mode=None
+                )
+            else:
+                await event.respond(
+                    t(user_id, 'enter_save_amount', goal_name),
+                    buttons=buttons,
+                    parse_mode=None
+                )
         except Exception as e:
             logger.error(f"Failed to edit add savings prompt: {e}")
             await event.respond(
@@ -236,11 +260,18 @@ class GoalHandler(BaseHandler):
         ]
         
         try:
-            await event.edit(
-                t(user_id, 'delete_goal_confirm', goal_name),
-                buttons=buttons,
-                parse_mode=None
-            )
+            if hasattr(event, 'edit'):
+                await event.edit(
+                    t(user_id, 'delete_goal_confirm', goal_name),
+                    buttons=buttons,
+                    parse_mode=None
+                )
+            else:
+                await event.respond(
+                    t(user_id, 'delete_goal_confirm', goal_name),
+                    buttons=buttons,
+                    parse_mode=None
+                )
         except Exception as e:
             logger.error(f"Failed to edit delete confirm: {e}")
             await event.respond(
@@ -263,11 +294,18 @@ class GoalHandler(BaseHandler):
         GoalHistoryRepository.delete_by_name(user_id, goal_name)
         
         try:
-            await event.edit(
-                t(user_id, 'goal_deleted', goal_name),
-                buttons=[Button.inline(t(user_id, 'back'), b"glist_0")],
-                parse_mode=None
-            )
+            if hasattr(event, 'edit'):
+                await event.edit(
+                    t(user_id, 'goal_deleted', goal_name),
+                    buttons=[Button.inline(t(user_id, 'back'), b"glist_0")],
+                    parse_mode=None
+                )
+            else:
+                await event.respond(
+                    t(user_id, 'goal_deleted', goal_name),
+                    buttons=[Button.inline(t(user_id, 'back'), b"glist_0")],
+                    parse_mode=None
+                )
         except Exception as e:
             logger.error(f"Failed to edit delete result: {e}")
             await event.respond(

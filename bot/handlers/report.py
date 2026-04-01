@@ -79,7 +79,7 @@ class ReportHandler(BaseHandler):
         
         buttons = [[Button.inline(t(user_id, 'back'), b"rep_main")]]
         
-        await event.edit(msg, buttons=buttons)
+        await event.edit(msg, buttons=buttons, parse_mode=None)
     
     async def show_date_wise_report(self, event, date):
         """
@@ -122,7 +122,7 @@ class ReportHandler(BaseHandler):
         
         buttons = [[Button.inline(t(user_id, 'back'), b"rep_main")]]
         
-        await event.respond(msg, buttons=buttons)
+        await event.respond(msg, buttons=buttons, parse_mode=None)
     
     async def send_monthly_summary_page(self, user_id, chat_id, page_index, message_id=None):
         """
@@ -141,12 +141,12 @@ class ReportHandler(BaseHandler):
                 msg = t(user_id, 'no_data')
                 if message_id:
                     try:
-                        await self.client.edit_message(chat_id, message_id, msg)
+                        await self.client.edit_message(chat_id, message_id, msg, parse_mode=None)
                     except Exception as e:
                         logger.error(f"Edit failed for no_data: {e}")
-                        await self.client.send_message(chat_id, msg)
+                        await self.client.send_message(chat_id, msg, parse_mode=None)
                 else:
-                    await self.client.send_message(chat_id, msg)
+                    await self.client.send_message(chat_id, msg, parse_mode=None)
                 return
             
             # Sort months latest first
@@ -184,9 +184,9 @@ class ReportHandler(BaseHandler):
                 else:
                     daily_stats[d]['exp'] += abs(amt)
             
-            # Build message - ensure it's never empty and proper formatting
+            # Build message - NO MARKDOWN, plain text only
             month_title = t(user_id, 'monthly_report', month_key)
-            msg = f"📅 **{month_title}**\n━━━━━━━━━━━━━━━━━━\n"
+            msg = f"📅 {month_title}\n━━━━━━━━━━━━━━━━━━\n"
             
             if not daily_stats:
                 msg += t(user_id, 'no_transactions') + "\n"
@@ -194,7 +194,7 @@ class ReportHandler(BaseHandler):
                 for date in sorted(daily_stats.keys(), reverse=True):
                     stats = daily_stats[date]
                     net = stats['inc'] - stats['exp']
-                    msg += f"🗓 **{date}**\n"
+                    msg += f"🗓 {date}\n"
                     msg += f"{t(user_id, 'total_income')}: {stats['inc']:.0f} | "
                     msg += f"{t(user_id, 'total_expense')}: {stats['exp']:.0f} | "
                     msg += f"{t(user_id, 'net')}: {net:.0f}\n"
@@ -226,33 +226,33 @@ class ReportHandler(BaseHandler):
             if not msg or not msg.strip():
                 msg = t(user_id, 'no_data')
             
-            # Send or edit message with proper error handling
+            # Send or edit message with parse_mode=None to avoid formatting issues
             if message_id:
                 try:
-                    await self.client.edit_message(chat_id, message_id, msg, buttons=buttons)
+                    await self.client.edit_message(chat_id, message_id, msg, buttons=buttons, parse_mode=None)
                     logger.info(f"Successfully edited monthly report for user {user_id}, page {page_index}")
                 except Exception as e:
                     logger.warning(f"Failed to edit message: {e}, sending new message")
                     try:
-                        await self.client.send_message(chat_id, msg, buttons=buttons)
+                        await self.client.send_message(chat_id, msg, buttons=buttons, parse_mode=None)
                     except Exception as e2:
                         logger.error(f"Failed to send with buttons: {e2}, sending without buttons")
-                        await self.client.send_message(chat_id, msg)
+                        await self.client.send_message(chat_id, msg, parse_mode=None)
             else:
                 try:
-                    await self.client.send_message(chat_id, msg, buttons=buttons)
+                    await self.client.send_message(chat_id, msg, buttons=buttons, parse_mode=None)
                     logger.info(f"Successfully sent monthly report for user {user_id}, page {page_index}")
                 except Exception as e:
                     logger.error(f"Failed to send with buttons: {e}, sending without buttons")
-                    await self.client.send_message(chat_id, msg)
+                    await self.client.send_message(chat_id, msg, parse_mode=None)
                     
         except Exception as e:
             logger.error(f"Unexpected error in send_monthly_summary_page: {e}", exc_info=True)
             try:
                 error_msg = t(user_id, 'error_occurred')
                 if message_id:
-                    await self.client.edit_message(chat_id, message_id, error_msg)
+                    await self.client.edit_message(chat_id, message_id, error_msg, parse_mode=None)
                 else:
-                    await self.client.send_message(chat_id, error_msg)
+                    await self.client.send_message(chat_id, error_msg, parse_mode=None)
             except:
                 pass

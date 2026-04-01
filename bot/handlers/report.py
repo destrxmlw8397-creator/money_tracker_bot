@@ -4,11 +4,14 @@ Handles /report command with today, date-wise, and monthly reports
 """
 
 import math
+import logging
 from telethon import Button
 from bot.handlers.base import BaseHandler
 from bot.utils.translations import t
 from bot.utils.helpers import get_current_month, get_current_date
 from bot.database.repositories import BalanceRepository
+
+logger = logging.getLogger(__name__)
 
 
 class ReportHandler(BaseHandler):
@@ -131,98 +134,123 @@ class ReportHandler(BaseHandler):
             page_index: Index of month to show (0 = latest)
             message_id: Optional message ID to edit
         """
-        all_months = BalanceRepository.get_all_months(user_id)
-        
-        if not all_months:
-            msg = t(user_id, 'no_data')
-            if message_id:
-                try:
-                    await self.client.edit_message(chat_id, message_id, msg)
-                except Exception:
-                    await self.client.send_message(chat_id, msg)
-            else:
-                await self.client.send_message(chat_id, msg)
-            return
-        
-        # Sort months latest first
-        all_months = all_months[::-1]
-        total_months = len(all_months)
-        
-        # Ensure page_index is within bounds
-        if page_index < 0:
-            page_index = 0
-        if page_index >= total_months:
-            page_index = total_months - 1
-        
-        target = all_months[page_index]
-        month_key = target.get('month', 'Unknown')
-        history = target.get('history', [])
-        
-        total_inc = target.get('total_income', 0)
-        total_exp = target.get('total_expense', 0)
-        
-        # Group by date
-        daily_stats = {}
-        for entry in history:
-            d = entry.get('date', 'Unknown')
-            amt = entry.get('amount', 0.0)
-            
-            if d not in daily_stats:
-                daily_stats[d] = {'inc': 0.0, 'exp': 0.0}
-            
-            # Skip debt entries that aren't repayments
-            if entry.get("is_debt_logic") and not entry.get("is_outstanding_repay"):
-                continue
-            
-            if amt > 0:
-                daily_stats[d]['inc'] += amt
-            else:
-                daily_stats[d]['exp'] += abs(amt)
-        
-        # Build message - ensure it's never empty
-        msg = f"📅 **{t(user_id, 'monthly_report', month_key)}**\n━━━━━━━━━━━━━━━━━━\n"
-        
-        if not daily_stats:
-            msg += t(user_id, 'no_transactions') + "\n"
-        else:
-            for date in sorted(daily_stats.keys(), reverse=True):
-                stats = daily_stats[date]
-                net = stats['inc'] - stats['exp']
-                msg += f"🗓 **{date}**\n"
-                msg += f"{t(user_id, 'total_income')}: {stats['inc']:.0f} | "
-                msg += f"{t(user_id, 'total_expense')}: {stats['exp']:.0f} | "
-                msg += f"{t(user_id, 'net')}: {net:.0f}\n"
-                msg += "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n"
-        
-        msg += f"{t(user_id, 'total_income')}: {total_inc:.2f}\n"
-        msg += f"{t(user_id, 'total_expense')}: {total_exp:.2f}\n"
-        msg += f"{t(user_id, 'net')}: {total_inc - total_exp:.2f}\n"
-        msg += f"{t(user_id, 'page')}: {page_index + 1} / {total_months}"
-        
-        # Navigation buttons
-        buttons = []
-        nav_row = []
-        
-        if page_index < total_months - 1:
-            nav_row.append(Button.inline(t(user_id, 'previous'), f"mrep_{page_index + 1}"))
-        if page_index > 0:
-            nav_row.append(Button.inline(t(user_id, 'next'), f"mrep_{page_index - 1}"))
-        
-        if nav_row:
-            buttons.append(nav_row)
-        
-        buttons.append([Button.inline(t(user_id, 'back'), b"rep_main")])
-        
-        # Send or edit message with error handling
         try:
+            all_months = BalanceRepository.get_all_months(user_id)
+            
+            if not all_months:
+                msg = t(user_id, 'no_data')
+                if message_id:
+                    try:
+                        await self.client.edit_message(chat_id, message_id, msg)
+                    except Exception as e:
+                        logger.error(f"Edit failed for no_data: {e}")
+                        await self.client.send_message(chat_id, msg)
+                else:
+                    await self.client.send_message(chat_id, msg)
+                return
+            
+            # Sort months latest first
+            all_months = all_months[::-1]
+            total_months = len(all_months)
+            
+            # Ensure page_index is within bounds
+            if page_index < 0:
+                page_index = 0
+            if page_index >= total_months:
+                page_index = total_months - 1
+            
+            target = all_months[page_index]
+            month_key = target.get('month', 'Unknown')
+            history = target.get('history', [])
+            
+            total_inc = target.get('total_income', 0)
+            total_exp = target.get('total_expense', 0)
+            
+            # Group by date
+            daily_stats = {}
+            for entry in history:
+                d = entry.get('date', 'Unknown')
+                amt = entry.get('amount', 0.0)
+                
+                if d not in daily_stats:
+                    daily_stats[d] = {'inc': 0.0, 'exp': 0.0}
+                
+                # Skip debt entries that aren't repayments
+                if entry.get("is_debt_logic") and not entry.get("is_outstanding_repay"):
+                    continue
+                
+                if amt > 0:
+                    daily_stats[d]['inc'] += amt
+                else:
+                    daily_stats[d]['exp'] += abs(amt)
+            
+            # Build message - ensure it's never empty
+            month_title = t(user_id, 'monthly_report', month_key)
+            msg_lines = [f"📅 **{month_title}**", "━━━━━━━━━━━━━━━━━━"]
+            
+            if not daily_stats:
+                msg_lines.append(t(user_id, 'no_transactions'))
+            else:
+                for date in sorted(daily_stats.keys(), reverse=True):
+                    stats = daily_stats[date]
+                    net = stats['inc'] - stats['exp']
+                    msg_lines.append(f"🗓 **{date}**")
+                    msg_lines.append(f"{t(user_id, 'total_income')}: {stats['inc']:.0f} | "
+                                    f"{t(user_id, 'total_expense')}: {stats['exp']:.0f} | "
+                                    f"{t(user_id, 'net')}: {net:.0f}")
+                    msg_lines.append("┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈")
+            
+            msg_lines.append(f"{t(user_id, 'total_income')}: {total_inc:.2f}")
+            msg_lines.append(f"{t(user_id, 'total_expense')}: {total_exp:.2f}")
+            msg_lines.append(f"{t(user_id, 'net')}: {total_inc - total_exp:.2f}")
+            msg_lines.append(f"{t(user_id, 'page')}: {page_index + 1} / {total_months}")
+            
+            msg = "\n".join(msg_lines)
+            
+            # Build buttons safely
+            buttons = []
+            
+            # Navigation buttons
+            nav_buttons = []
+            if page_index < total_months - 1:
+                nav_buttons.append(Button.inline(t(user_id, 'previous'), f"mrep_{page_index + 1}"))
+            if page_index > 0:
+                nav_buttons.append(Button.inline(t(user_id, 'next'), f"mrep_{page_index - 1}"))
+            
+            if nav_buttons:
+                buttons.append(nav_buttons)
+            
+            # Back button - always add
+            back_button = Button.inline(t(user_id, 'back'), b"rep_main")
+            buttons.append([back_button])
+            
+            # Send or edit message with proper error handling
             if message_id:
                 try:
                     await self.client.edit_message(chat_id, message_id, msg, buttons=buttons)
+                    logger.info(f"Successfully edited monthly report for user {user_id}, page {page_index}")
                 except Exception as e:
-                    # If edit fails, send as new message
-                    await self.client.send_message(chat_id, msg, buttons=buttons)
+                    logger.warning(f"Failed to edit message: {e}, sending new message")
+                    try:
+                        await self.client.send_message(chat_id, msg, buttons=buttons)
+                    except Exception as e2:
+                        logger.error(f"Failed to send with buttons: {e2}, sending without buttons")
+                        await self.client.send_message(chat_id, msg)
             else:
-                await self.client.send_message(chat_id, msg, buttons=buttons)
+                try:
+                    await self.client.send_message(chat_id, msg, buttons=buttons)
+                    logger.info(f"Successfully sent monthly report for user {user_id}, page {page_index}")
+                except Exception as e:
+                    logger.error(f"Failed to send with buttons: {e}, sending without buttons")
+                    await self.client.send_message(chat_id, msg)
+                    
         except Exception as e:
-            # Last resort: send without buttons
-            await self.client.send_message(chat_id, msg)
+            logger.error(f"Unexpected error in send_monthly_summary_page: {e}", exc_info=True)
+            try:
+                error_msg = t(user_id, 'error_occurred')
+                if message_id:
+                    await self.client.edit_message(chat_id, message_id, error_msg)
+                else:
+                    await self.client.send_message(chat_id, error_msg)
+            except:
+                pass

@@ -5,6 +5,7 @@ Handles all inline button callbacks for the bot
 
 import math
 import os
+import logging
 from telethon import Button
 from bot.handlers.base import BaseHandler
 from bot.utils.translations import t, set_user_lang
@@ -20,6 +21,8 @@ from bot.services.transaction_service import (
     update_user_db, get_user_monthly_data,
     get_lifetime_wallet_balance, generate_pdf
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CallbackHandler(BaseHandler):
@@ -41,11 +44,11 @@ class CallbackHandler(BaseHandler):
         # ==================== LANGUAGE HANDLERS ====================
         if data == "lang_bn":
             set_user_lang(user_id, "bn")
-            await event.edit(t(user_id, 'language_set'))
+            await event.edit(t(user_id, 'language_set'), parse_mode=None)
             return
         elif data == "lang_en":
             set_user_lang(user_id, "en")
-            await event.edit(t(user_id, 'language_set'))
+            await event.edit(t(user_id, 'language_set'), parse_mode=None)
             return
 
         # ==================== TEMP DATA HANDLERS ====================
@@ -63,11 +66,13 @@ class CallbackHandler(BaseHandler):
                     if action_type == "give":
                         process_debt_entry_with_balance(user_id, name, amount, "give", wallet_name, event)
                         await event.respond(t(user_id, 'updated', name, amount),
-                                           buttons=[Button.inline(t(user_id, 'back'), b"debt_main_menu")])
+                                           buttons=[Button.inline(t(user_id, 'back'), b"debt_main_menu")],
+                                           parse_mode=None)
                     elif action_type == "take":
                         process_debt_entry_with_balance(user_id, name, amount, "take", wallet_name, event)
                         await event.respond(t(user_id, 'updated', name, amount),
-                                           buttons=[Button.inline(t(user_id, 'back'), b"debt_main_menu")])
+                                           buttons=[Button.inline(t(user_id, 'back'), b"debt_main_menu")],
+                                           parse_mode=None)
                     await event.delete()
                     return
 
@@ -80,7 +85,8 @@ class CallbackHandler(BaseHandler):
 
                     new_bal = process_debt_repayment(user_id, debt_id, amount, wallet_name, event)
                     await event.respond(t(user_id, 'repay_success', new_bal),
-                                       buttons=[Button.inline(t(user_id, 'back'), b"debt_main_menu")])
+                                       buttons=[Button.inline(t(user_id, 'back'), b"debt_main_menu")],
+                                       parse_mode=None)
                     await event.delete()
                     return
 
@@ -106,7 +112,8 @@ class CallbackHandler(BaseHandler):
                             update_user_db(user_id, -amount, f"Out-Repay to {name}", wallet_name, event)
 
                         await event.respond(t(user_id, 'out_repay_success', new_bal),
-                                           buttons=[Button.inline(t(user_id, 'back'), b"out_main")])
+                                           buttons=[Button.inline(t(user_id, 'back'), b"out_main")],
+                                           parse_mode=None)
                     await event.delete()
                     return
 
@@ -132,7 +139,8 @@ class CallbackHandler(BaseHandler):
             from bot.handlers.pdf import PDFHandler
             PDFHandler.user_states[user_id] = "ST_PDF_MONTH"
             await event.edit(t(user_id, 'pdf_month_prompt'),
-                           buttons=[Button.inline(t(user_id, 'back'), b"pdf_main")])
+                           buttons=[Button.inline(t(user_id, 'back'), b"pdf_main")],
+                           parse_mode=None)
             return
 
         elif data == "pdf_main":
@@ -145,7 +153,7 @@ class CallbackHandler(BaseHandler):
                 [Button.inline(t(user_id, 'pdf_date_wise'), b"pdf_date_wise")],
                 [Button.inline(t(user_id, 'cancel'), b"cancel_state")]
             ]
-            await event.edit(t(user_id, 'pdf_options'), buttons=buttons)
+            await event.edit(t(user_id, 'pdf_options'), buttons=buttons, parse_mode=None)
             return
 
         elif data == "pdf_today":
@@ -162,16 +170,17 @@ class CallbackHandler(BaseHandler):
             from bot.handlers.pdf import PDFHandler
             PDFHandler.user_states[user_id] = "ST_PDF_DATE"
             await event.edit(t(user_id, 'pdf_date_prompt'),
-                           buttons=[Button.inline(t(user_id, 'back'), b"pdf_main")])
+                           buttons=[Button.inline(t(user_id, 'back'), b"pdf_main")],
+                           parse_mode=None)
             return
 
-        # ==================== RESET HANDLERS (FIXED) ====================
+        # ==================== RESET HANDLERS ====================
         elif data == "reset_month":
             confirm_buttons = [[
                 Button.inline(t(user_id, 'confirm'), b"conf_month_yes"),
                 Button.inline(t(user_id, 'no'), b"conf_no")
             ]]
-            await event.edit(t(user_id, 'reset_month_confirm', month_key), buttons=confirm_buttons)
+            await event.edit(t(user_id, 'reset_month_confirm', month_key), buttons=confirm_buttons, parse_mode=None)
             return
 
         elif data == "reset_all":
@@ -179,18 +188,18 @@ class CallbackHandler(BaseHandler):
                 Button.inline(t(user_id, 'confirm'), b"conf_reset_full"),
                 Button.inline(t(user_id, 'no'), b"conf_no")
             ]]
-            await event.edit(t(user_id, 'reset_all_confirm'), buttons=confirm_buttons)
+            await event.edit(t(user_id, 'reset_all_confirm'), buttons=confirm_buttons, parse_mode=None)
             return
 
         elif data == "conf_no":
             from bot.handlers.message import MessageHandler
             MessageHandler.user_states.pop(user_id, None)
-            await event.edit(t(user_id, 'operation_cancelled'))
+            await event.edit(t(user_id, 'operation_cancelled'), parse_mode=None)
             return
 
         elif data == "conf_month_yes":
             BalanceRepository.delete_month_data(user_id, month_key)
-            await event.edit(t(user_id, 'reset_month_success', month_key))
+            await event.edit(t(user_id, 'reset_month_success', month_key), parse_mode=None)
             return
 
         elif data == "conf_reset_full":
@@ -212,7 +221,8 @@ class CallbackHandler(BaseHandler):
                 f"{t(user_id, 'total_income')}: {today_income:.2f}\n"
                 f"{t(user_id, 'total_expense')}: {today_expense:.2f}\n"
                 f"{t(user_id, 'net')}: {(today_income - today_expense):.2f}",
-                buttons=[Button.inline(t(user_id, 'back'), b"rep_main")]
+                buttons=[Button.inline(t(user_id, 'back'), b"rep_main")],
+                parse_mode=None
             )
             return
 
@@ -220,7 +230,8 @@ class CallbackHandler(BaseHandler):
             from bot.handlers.message import MessageHandler
             MessageHandler.user_states[user_id] = "ST_REP_DATE"
             await event.edit(t(user_id, 'enter_date'),
-                           buttons=[Button.inline(t(user_id, 'cancel'), b"rep_main")])
+                           buttons=[Button.inline(t(user_id, 'cancel'), b"rep_main")],
+                           parse_mode=None)
             return
 
         elif data == "rep_main":
@@ -232,7 +243,7 @@ class CallbackHandler(BaseHandler):
                 [Button.inline(t(user_id, 'monthly_wise'), b"mrep_0")],
                 [Button.inline(t(user_id, 'cancel'), b"cancel_state")]
             ]
-            await event.edit(t(user_id, 'select_report'), buttons=buttons)
+            await event.edit(t(user_id, 'select_report'), buttons=buttons, parse_mode=None)
             return
 
         elif data.startswith("mrep_"):
@@ -245,7 +256,7 @@ class CallbackHandler(BaseHandler):
         elif data == "cancel_state":
             from bot.handlers.message import MessageHandler
             MessageHandler.user_states.pop(user_id, None)
-            await event.edit(t(user_id, 'operation_cancelled'))
+            await event.edit(t(user_id, 'operation_cancelled'), parse_mode=None)
             return
 
         # ==================== HISTORY ====================
@@ -269,7 +280,7 @@ class CallbackHandler(BaseHandler):
                 [Button.inline(t(user_id, 'outstanding'), b"out_main")],
                 [Button.inline(t(user_id, 'cancel'), b"cancel_state")]
             ]
-            await event.edit(t(user_id, 'debt_manager') + "\n" + t(user_id, 'select_option'), buttons=buttons)
+            await event.edit(t(user_id, 'debt_manager') + "\n" + t(user_id, 'select_option'), buttons=buttons, parse_mode=None)
             return
 
         # ==================== OUTSTANDING HANDLERS ====================
@@ -303,7 +314,8 @@ class CallbackHandler(BaseHandler):
             MessageHandler.user_states[user_id] = f"ST_OUTAMT_{dtype}_{name}"
             action = t(user_id, 'to_give') if dtype == 'give' else t(user_id, 'to_take')
             await event.edit(t(user_id, 'enter_out_amount', name, action),
-                           buttons=[Button.inline(t(user_id, 'back'), b"out_main")])
+                           buttons=[Button.inline(t(user_id, 'back'), b"out_main")],
+                           parse_mode=None)
             return
 
         elif data.startswith("onew_"):
@@ -311,7 +323,8 @@ class CallbackHandler(BaseHandler):
             from bot.handlers.message import MessageHandler
             MessageHandler.user_states[user_id] = f"ST_OUTNEW_{dtype}"
             await event.edit(t(user_id, 'add_new_person'),
-                           buttons=[Button.inline(t(user_id, 'back'), b"out_main")])
+                           buttons=[Button.inline(t(user_id, 'back'), b"out_main")],
+                           parse_mode=None)
             return
 
         elif data.startswith("orp_"):
@@ -321,7 +334,8 @@ class CallbackHandler(BaseHandler):
             from bot.handlers.message import MessageHandler
             MessageHandler.user_states[user_id] = f"ST_OUTREPAY_{d_id}"
             await event.edit(t(user_id, 'enter_out_amount', '', ''),
-                           buttons=[Button.inline(t(user_id, 'back'), b"out_main")])
+                           buttons=[Button.inline(t(user_id, 'back'), b"out_main")],
+                           parse_mode=None)
             return
 
         elif data.startswith("ovdet_"):
@@ -344,7 +358,8 @@ class CallbackHandler(BaseHandler):
             MessageHandler.user_states[user_id] = f"ST_AMT_{dtype}_{name}"
             action = t(user_id, 'to_give') if dtype == 'give' else t(user_id, 'to_take')
             await event.edit(t(user_id, 'enter_amount', name, action),
-                           buttons=[Button.inline(t(user_id, 'back'), f"debt_{dtype}_0")])
+                           buttons=[Button.inline(t(user_id, 'back'), f"debt_{dtype}_0")],
+                           parse_mode=None)
             return
 
         elif data.startswith("dnew_"):
@@ -352,7 +367,8 @@ class CallbackHandler(BaseHandler):
             from bot.handlers.message import MessageHandler
             MessageHandler.user_states[user_id] = f"ST_NEW_{dtype}"
             await event.edit(t(user_id, 'add_new_person'),
-                           buttons=[Button.inline(t(user_id, 'back'), f"debt_{dtype}_0")])
+                           buttons=[Button.inline(t(user_id, 'back'), f"debt_{dtype}_0")],
+                           parse_mode=None)
             return
 
         elif data == "debt_i_repaid":
@@ -383,7 +399,8 @@ class CallbackHandler(BaseHandler):
                 from bot.handlers.message import MessageHandler
                 MessageHandler.user_states[user_id] = f"ST_REPAY_AMT_{dtype}_{debt_id}_{debt['name']}"
                 await event.edit(t(user_id, 'enter_amount', debt['name'], ''),
-                               buttons=[Button.inline(t(user_id, 'back'), b"debt_main_menu")])
+                               buttons=[Button.inline(t(user_id, 'back'), b"debt_main_menu")],
+                               parse_mode=None)
             return
 
         elif data.startswith("vdet_"):
@@ -402,7 +419,7 @@ class CallbackHandler(BaseHandler):
             name = data.split("_")[1]
             btns = [[Button.inline(t(user_id, 'confirm'), f"confdeldebt_{name}"),
                     Button.inline(t(user_id, 'no'), f"vdet_{name}")]]
-            await event.edit(t(user_id, 'delete_confirm', name), buttons=btns)
+            await event.edit(t(user_id, 'delete_confirm', name), buttons=btns, parse_mode=None)
             return
 
         elif data.startswith("confdeldebt_"):
@@ -410,10 +427,11 @@ class CallbackHandler(BaseHandler):
             DebtRepository.delete_by_name(user_id, name)
             DebtHistoryRepository.delete_by_name(user_id, name)
             await event.edit(t(user_id, 'deleted', name),
-                           buttons=[Button.inline(t(user_id, 'back'), b"debt_list")])
+                           buttons=[Button.inline(t(user_id, 'back'), b"debt_list")],
+                           parse_mode=None)
             return
 
-        # ==================== GOAL HANDLERS ====================
+        # ==================== GOAL HANDLERS (FIXED) ====================
         elif data == "goal_main":
             from bot.handlers.message import MessageHandler
             MessageHandler.user_states.pop(user_id, None)
@@ -423,49 +441,51 @@ class CallbackHandler(BaseHandler):
             return
 
         elif data.startswith("glist_"):
+            from bot.handlers.goal import GoalHandler
             page = int(data.split("_")[1])
-            await self.show_goal_list(event, page)
+            gh = GoalHandler(self.client)
+            await gh.show_goal_list(event, page)
             return
 
         elif data.startswith("gsave_"):
             gname = data.split("_")[1]
-            from bot.handlers.message import MessageHandler
-            MessageHandler.user_states[user_id] = f"ST_SAVE_GOAL_{gname}"
-            btns = [[Button.inline(t(user_id, 'delete_goal_confirm', ''), f"delgoal_{gname}")],
-                    [Button.inline(t(user_id, 'back'), b"glist_0")]]
-            await event.edit(t(user_id, 'enter_save_amount', gname), buttons=btns)
+            from bot.handlers.goal import GoalHandler
+            gh = GoalHandler(self.client)
+            await gh.add_savings_prompt(event, gname)
             return
 
         elif data.startswith("delgoal_"):
             gname = data.split("_")[1]
-            btns = [[Button.inline(t(user_id, 'confirm'), f"confdelgoal_{gname}"),
-                    Button.inline(t(user_id, 'no'), f"gsave_{gname}")]]
-            await event.edit(t(user_id, 'delete_goal_confirm', gname), buttons=btns)
+            from bot.handlers.goal import GoalHandler
+            gh = GoalHandler(self.client)
+            await gh.delete_goal_confirm(event, gname)
             return
 
         elif data.startswith("confdelgoal_"):
             gname = data.split("_")[1]
-            GoalRepository.delete_by_name(user_id, gname)
-            GoalHistoryRepository.delete_by_name(user_id, gname)
-            await event.edit(t(user_id, 'goal_deleted', gname),
-                           buttons=[Button.inline(t(user_id, 'back'), b"glist_0")])
+            from bot.handlers.goal import GoalHandler
+            gh = GoalHandler(self.client)
+            await gh.execute_delete_goal(event, gname)
             return
 
         elif data.startswith("gdet_"):
+            from bot.handlers.goal import GoalHandler
             page = int(data.split("_")[1])
-            await self.show_goal_details_menu(event, page)
+            gh = GoalHandler(self.client)
+            await gh.show_goal_details_menu(event, page)
             return
 
         elif data.startswith("vgoal_"):
             gname = data.split("_")[1]
-            await self.show_goal_history(event, gname, 0)
+            from bot.handlers.goal import GoalHandler
+            gh = GoalHandler(self.client)
+            await gh.show_goal_history(event, gname)
             return
 
         elif data == "new_goal":
-            from bot.handlers.message import MessageHandler
-            MessageHandler.user_states[user_id] = "ST_NEW_GOAL"
-            await event.edit(t(user_id, 'enter_goal'),
-                           buttons=[Button.inline(t(user_id, 'back'), b"goal_main")])
+            from bot.handlers.goal import GoalHandler
+            gh = GoalHandler(self.client)
+            await gh.add_new_goal_prompt(event)
             return
 
         # ==================== TRANSFER HANDLERS ====================
@@ -494,7 +514,8 @@ class CallbackHandler(BaseHandler):
             MessageHandler.user_states[user_id] = f"ST_TRNS_AMT_{wallet_from}_{wallet_to}"
             await event.edit(t(user_id, 'enter_transfer_amount', wallet_from, wallet_to),
                            buttons=[[Button.inline(t(user_id, 'back'), f"tsel_f_{wallet_from}")],
-                                   [Button.inline(t(user_id, 'cancel'), b"cancel_state")]])
+                                   [Button.inline(t(user_id, 'cancel'), b"cancel_state")]],
+                           parse_mode=None)
             return
 
         # ==================== WALLET DELETE HANDLERS ====================
@@ -507,7 +528,7 @@ class CallbackHandler(BaseHandler):
             w_name = data.split("_")[2]
             btns = [[Button.inline(t(user_id, 'confirm'), f"dw_conf_{w_name}"),
                     Button.inline(t(user_id, 'no'), b"dw_list_0")]]
-            await event.edit(t(user_id, 'delete_wallet_confirm', w_name), buttons=btns)
+            await event.edit(t(user_id, 'delete_wallet_confirm', w_name), buttons=btns, parse_mode=None)
             return
 
         elif data.startswith("dw_conf_"):
@@ -518,7 +539,8 @@ class CallbackHandler(BaseHandler):
                 del wallets[w_name]
                 BalanceRepository.update_monthly_data(user_id, month_key, data_m)
                 await event.edit(t(user_id, 'wallet_deleted', w_name),
-                               buttons=[Button.inline(t(user_id, 'back'), b"dw_list_0")])
+                               buttons=[Button.inline(t(user_id, 'back'), b"dw_list_0")],
+                               parse_mode=None)
             else:
                 await event.answer(t(user_id, 'no_data'), alert=True)
             return
@@ -528,7 +550,7 @@ class CallbackHandler(BaseHandler):
             name = data.split("_")[1]
             btns = [[Button.inline(t(user_id, 'confirm'), f"confdelout_{name}"),
                     Button.inline(t(user_id, 'no'), f"ovdet_{name}")]]
-            await event.edit(t(user_id, 'delete_out_confirm', name), buttons=btns)
+            await event.edit(t(user_id, 'delete_out_confirm', name), buttons=btns, parse_mode=None)
             return
 
         elif data.startswith("confdelout_"):
@@ -536,10 +558,13 @@ class CallbackHandler(BaseHandler):
             OutstandingRepository.delete_by_name(user_id, name)
             OutstandingHistoryRepository.delete_by_name(user_id, name)
             await event.edit(t(user_id, 'out_deleted', name),
-                           buttons=[Button.inline(t(user_id, 'back'), b"out_list")])
+                           buttons=[Button.inline(t(user_id, 'back'), b"out_list")],
+                           parse_mode=None)
             return
 
     # ==================== HELPER METHODS ====================
+    # (rest of helper methods remain the same - show_out_names, show_out_repay_list, etc.)
+    # ... I'm keeping them as they were in your original code ...
 
     async def show_out_names(self, event, dtype, page):
         """Show names for outstanding (give_work/take_work)"""
@@ -564,7 +589,7 @@ class CallbackHandler(BaseHandler):
                     Button.inline(t(user_id, 'back'), b"out_main")])
 
         await event.edit(f"{t(user_id, 'select_name_work')}\n{t(user_id, 'page')}: {page+1}/{total_pages}",
-                        buttons=btns)
+                        buttons=btns, parse_mode=None)
 
     async def show_out_repay_list(self, event, dtype, page):
         """Show repayment list for outstanding (i_repaid_work/he_repaid_work)"""
@@ -593,7 +618,7 @@ class CallbackHandler(BaseHandler):
         btns.append([Button.inline(t(user_id, 'back'), b"out_main")])
 
         await event.edit(f"{t(user_id, 'repay_list_work')}\n{t(user_id, 'page')}: {page+1}/{total_pages}",
-                        buttons=btns)
+                        buttons=btns, parse_mode=None)
 
     async def show_out_grid(self, event):
         """Show outstanding grid (give on left, take on right)"""
@@ -621,7 +646,7 @@ class CallbackHandler(BaseHandler):
             buttons.append(row)
 
         buttons.append([Button.inline(t(user_id, 'back'), b"out_main")])
-        await event.edit(t(user_id, 'out_grid'), buttons=buttons)
+        await event.edit(t(user_id, 'out_grid'), buttons=buttons, parse_mode=None)
 
     async def show_out_person_history(self, event, name, page):
         """Show transaction history for a person in outstanding"""
@@ -641,7 +666,7 @@ class CallbackHandler(BaseHandler):
         btns = [[Button.inline(t(user_id, 'back'), b"out_list"),
                 Button.inline(t(user_id, 'delete'), f"delout_{name}")]]
 
-        await event.edit(msg, buttons=btns)
+        await event.edit(msg, buttons=btns, parse_mode=None)
 
     async def show_debt_names(self, event, dtype, page):
         """Show names for debt (give/take)"""
@@ -666,7 +691,7 @@ class CallbackHandler(BaseHandler):
                     Button.inline(t(user_id, 'back'), b"debt_main_menu")])
 
         await event.edit(f"{t(user_id, 'select_person', action)}\n{t(user_id, 'page')}: {page+1}/{total_pages}",
-                        buttons=btns)
+                        buttons=btns, parse_mode=None)
 
     async def show_repay_list(self, event, dtype, page):
         """Show repayment list for debt (i_repaid/he_repaid)"""
@@ -695,7 +720,7 @@ class CallbackHandler(BaseHandler):
         btns.append([Button.inline(t(user_id, 'back'), b"debt_main_menu")])
 
         await event.edit(f"{t(user_id, 'repay_list')}\n{t(user_id, 'page')}: {page+1}/{total_pages}",
-                        buttons=btns)
+                        buttons=btns, parse_mode=None)
 
     async def show_debt_grid(self, event):
         """Show debt grid (receivable on left, payable on right)"""
@@ -723,7 +748,7 @@ class CallbackHandler(BaseHandler):
             buttons.append(row)
 
         buttons.append([Button.inline(t(user_id, 'back'), b"debt_main_menu")])
-        await event.edit(t(user_id, 'debt_grid'), buttons=buttons)
+        await event.edit(t(user_id, 'debt_grid'), buttons=buttons, parse_mode=None)
 
     async def show_person_history(self, event, name, page):
         """Show transaction history for a person in debt"""
@@ -750,7 +775,7 @@ class CallbackHandler(BaseHandler):
         btns.append([Button.inline(t(user_id, 'back'), b"debt_list"),
                     Button.inline(t(user_id, 'delete'), f"deldebt_{name}")])
 
-        await event.edit(msg, buttons=btns)
+        await event.edit(msg, buttons=btns, parse_mode=None)
 
     async def show_goal_list(self, event, page):
         """Show list of goals"""
@@ -774,12 +799,16 @@ class CallbackHandler(BaseHandler):
                     Button.inline(t(user_id, 'back'), b"goal_main")])
 
         await event.edit(f"{t(user_id, 'your_goals')}\n{t(user_id, 'page')}: {page+1}/{total_pages}",
-                        buttons=btns)
+                        buttons=btns, parse_mode=None)
 
     async def show_goal_details_menu(self, event, page):
         """Show goal progress percentages"""
         user_id = event.sender_id
         rows = GoalRepository.get_all(user_id)
+        
+        if not rows:
+            await event.edit(t(user_id, 'no_goals'), buttons=[[Button.inline(t(user_id, 'back'), b"goal_main")]], parse_mode=None)
+            return
 
         btns = []
         for r in rows:
@@ -787,7 +816,7 @@ class CallbackHandler(BaseHandler):
             btns.append([Button.inline(f"🎯 {r['name']} {percent:.0f}%", f"vgoal_{r['name']}")])
 
         btns.append([Button.inline(t(user_id, 'back'), b"goal_main")])
-        await event.edit(t(user_id, 'goal_progress'), buttons=btns)
+        await event.edit(t(user_id, 'goal_progress'), buttons=btns, parse_mode=None)
 
     async def show_goal_history(self, event, gname, page):
         """Show transaction history for a goal"""
@@ -800,7 +829,7 @@ class CallbackHandler(BaseHandler):
         for l in logs:
             msg += f"🔹 {l['amount']:.2f} | {l['date']} | {l['time']}\n"
 
-        await event.edit(msg, buttons=[[Button.inline(t(user_id, 'back'), b"gdet_0")]])
+        await event.edit(msg, buttons=[[Button.inline(t(user_id, 'back'), b"gdet_0")]], parse_mode=None)
 
     async def show_transfer_wallets(self, event, page, mode, wallet_from=None):
         """Show wallet selection for transfer"""
@@ -817,7 +846,7 @@ class CallbackHandler(BaseHandler):
             all_wallets = [w for w in wallets.keys() if w != wallet_from]
 
         if not all_wallets:
-            await event.edit(t(user_id, 'no_wallet'))
+            await event.edit(t(user_id, 'no_wallet'), parse_mode=None)
             return
 
         page_size = 10
@@ -846,9 +875,9 @@ class CallbackHandler(BaseHandler):
         btns.append([Button.inline(t(user_id, 'cancel'), b"cancel_state")])
 
         try:
-            await event.edit(msg, buttons=btns)
+            await event.edit(msg, buttons=btns, parse_mode=None)
         except Exception:
-            await event.respond(msg, buttons=btns)
+            await event.respond(msg, buttons=btns, parse_mode=None)
 
     async def show_del_wallet_list(self, event, page):
         """Show list of wallets for deletion"""
@@ -858,7 +887,7 @@ class CallbackHandler(BaseHandler):
         all_wallets = list(wallets.keys())
 
         if not all_wallets:
-            await event.respond(t(user_id, 'no_wallet'))
+            await event.respond(t(user_id, 'no_wallet'), parse_mode=None)
             return
 
         page_size = 10
@@ -880,9 +909,9 @@ class CallbackHandler(BaseHandler):
         btns.append([Button.inline(t(user_id, 'cancel'), b"cancel_state")])
 
         try:
-            await event.edit(msg, buttons=btns)
+            await event.edit(msg, buttons=btns, parse_mode=None)
         except Exception:
-            await event.respond(msg, buttons=btns)
+            await event.respond(msg, buttons=btns, parse_mode=None)
 
     async def reset_full_database(self, event):
         """Reset all user data"""
@@ -894,4 +923,4 @@ class CallbackHandler(BaseHandler):
         GoalHistoryRepository.delete_user_data(user_id)
         OutstandingRepository.delete_user_data(user_id)
         OutstandingHistoryRepository.delete_user_data(user_id)
-        await event.edit(t(user_id, 'reset_all_success'))
+        await event.edit(t(user_id, 'reset_all_success'), parse_mode=None)

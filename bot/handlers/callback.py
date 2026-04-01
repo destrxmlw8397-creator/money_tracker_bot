@@ -759,4 +759,132 @@ class CallbackHandler(BaseHandler):
         if page > 0:
             nav.append(Button.inline(t(user_id, 'previous'), f"glist_{page-1}"))
         if (page + 1) < total_pages:
-            nav.append(Button.inline(t(user_id,
+            nav.append(Button.inline(t(user_id, 'next'), f"glist_{page+1}"))
+        if nav:
+            btns.append(nav)
+
+        btns.append([Button.inline(t(user_id, 'add_new_goal'), b"new_goal"),
+                    Button.inline(t(user_id, 'back'), b"goal_main")])
+
+        await event.edit(f"{t(user_id, 'your_goals')}\n{t(user_id, 'page')}: {page+1}/{total_pages}",
+                        buttons=btns)
+
+    async def show_goal_details_menu(self, event, page):
+        """Show goal progress percentages"""
+        user_id = event.sender_id
+        rows = GoalRepository.get_all(user_id)
+
+        btns = []
+        for r in rows:
+            percent = (r['saved'] / r['target'] * 100) if r['target'] > 0 else 0
+            btns.append([Button.inline(f"🎯 {r['name']} {percent:.0f}%", f"vgoal_{r['name']}")])
+
+        btns.append([Button.inline(t(user_id, 'back'), b"goal_main")])
+        await event.edit(t(user_id, 'goal_progress'), buttons=btns)
+
+    async def show_goal_history(self, event, gname, page):
+        """Show transaction history for a goal"""
+        user_id = event.sender_id
+        logs = GoalHistoryRepository.get_by_name(user_id, gname, limit=10)
+
+        msg = f"{t(user_id, 'goal_detail', gname)}\n━━━━━━━━━━━━━\n"
+        if not logs:
+            msg += t(user_id, 'no_savings')
+        for l in logs:
+            msg += f"🔹 {l['amount']:.2f} | {l['date']} | {l['time']}\n"
+
+        await event.edit(msg, buttons=[[Button.inline(t(user_id, 'back'), b"gdet_0")]])
+
+    async def show_transfer_wallets(self, event, page, mode, wallet_from=None):
+        """Show wallet selection for transfer"""
+        user_id = event.sender_id
+        data = get_user_monthly_data(user_id, get_current_month(event))
+        wallets = data.get('wallets', {})
+
+        if mode == "from":
+            all_wallets = list(wallets.keys())
+            msg_header = t(user_id, 'transfer_from')
+        else:
+            lifetime_balance = get_lifetime_wallet_balance(user_id, wallet_from)
+            msg_header = f"{t(user_id, 'transfer_to', wallet_from)}\n{t(user_id, 'lifetime_balance_info', lifetime_balance)}"
+            all_wallets = [w for w in wallets.keys() if w != wallet_from]
+
+        if not all_wallets:
+            await event.edit(t(user_id, 'no_wallet'))
+            return
+
+        page_size = 10
+        total_pages = max(1, math.ceil(len(all_wallets) / page_size))
+        start = page * page_size
+        wallets_slice = all_wallets[start:start + page_size]
+
+        msg = f"{msg_header}\n━━━━━━━━━━━━━━━━━━\n{t(user_id, 'page')}: {page + 1} / {total_pages}"
+        btns = []
+        for w in wallets_slice:
+            callback = f"tsel_f_{w}" if mode == "from" else f"tsel_t_{wallet_from}_{w}"
+            btns.append([Button.inline(f"{w} ({wallets[w]:.2f})", callback)])
+
+        nav = []
+        if page > 0:
+            p_cb = f"t_from_{page-1}" if mode == "from" else f"t_to_{page-1}_{wallet_from}"
+            nav.append(Button.inline(t(user_id, 'previous'), p_cb))
+        if (page + 1) < total_pages:
+            n_cb = f"t_from_{page+1}" if mode == "from" else f"t_to_{page+1}_{wallet_from}"
+            nav.append(Button.inline(t(user_id, 'next'), n_cb))
+        if nav:
+            btns.append(nav)
+
+        if mode == "to":
+            btns.append([Button.inline(t(user_id, 'back_to_from'), "t_from_0")])
+        btns.append([Button.inline(t(user_id, 'cancel'), b"cancel_state")])
+
+        try:
+            await event.edit(msg, buttons=btns)
+        except Exception:
+            await event.respond(msg, buttons=btns)
+
+    async def show_del_wallet_list(self, event, page):
+        """Show list of wallets for deletion"""
+        user_id = event.sender_id
+        data = get_user_monthly_data(user_id, get_current_month(event))
+        wallets = data.get('wallets', {})
+        all_wallets = list(wallets.keys())
+
+        if not all_wallets:
+            await event.respond(t(user_id, 'no_wallet'))
+            return
+
+        page_size = 10
+        total_pages = max(1, math.ceil(len(all_wallets) / page_size))
+        start = page * page_size
+        wallets_slice = all_wallets[start:start + page_size]
+
+        msg = f"{t(user_id, 'select_wallet_delete')}\n{t(user_id, 'page')}: {page + 1} / {total_pages}"
+        btns = [[Button.inline(f"🗑️ {w}", f"dw_sel_{w}")] for w in wallets_slice]
+
+        nav = []
+        if page > 0:
+            nav.append(Button.inline(t(user_id, 'previous'), f"dw_list_{page-1}"))
+        if (page + 1) < total_pages:
+            nav.append(Button.inline(t(user_id, 'next'), f"dw_list_{page+1}"))
+        if nav:
+            btns.append(nav)
+
+        btns.append([Button.inline(t(user_id, 'cancel'), b"cancel_state")])
+
+        try:
+            await event.edit(msg, buttons=btns)
+        except Exception:
+            await event.respond(msg, buttons=btns)
+
+    async def reset_full_database(self, event):
+        """Reset all user data"""
+        user_id = event.sender_id
+        BalanceRepository.delete_user_data(user_id)
+        DebtRepository.delete_user_data(user_id)
+        DebtHistoryRepository.delete_user_data(user_id)
+        GoalRepository.delete_user_data(user_id)
+        GoalHistoryRepository.delete_user_data(user_id)
+        OutstandingRepository.delete_user_data(user_id)
+        OutstandingHistoryRepository.delete_user_data(user_id)
+        await event.edit(t(user_id, 'reset_all_success'))

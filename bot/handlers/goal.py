@@ -8,6 +8,7 @@ import logging
 from telethon import Button
 from bot.handlers.base import BaseHandler
 from bot.utils.translations import t
+from bot.utils.helpers import get_current_date, get_current_time
 from bot.database.repositories import GoalRepository, GoalHistoryRepository
 
 logger = logging.getLogger(__name__)
@@ -34,10 +35,16 @@ class GoalHandler(BaseHandler):
             [Button.inline(t(user_id, 'cancel'), b"cancel_state")]
         ]
         
-        # Use edit if it's a callback, otherwise respond
-        if hasattr(event, 'edit') and callable(getattr(event, 'edit')):
-            await event.edit(t(user_id, 'goal_manager'), buttons=buttons, parse_mode=None)
+        # Check if it's a callback or a new command
+        if hasattr(event, 'edit') and not hasattr(event, 'message'):
+            # This is a callback (inline button press)
+            try:
+                await event.edit(t(user_id, 'goal_manager'), buttons=buttons, parse_mode=None)
+            except Exception as e:
+                logger.error(f"Failed to edit message: {e}")
+                await event.respond(t(user_id, 'goal_manager'), buttons=buttons, parse_mode=None)
         else:
+            # This is a new /goal command - send new message
             await event.respond(t(user_id, 'goal_manager'), buttons=buttons, parse_mode=None)
     
     async def show_goal_list(self, event, page=0):
@@ -81,10 +88,11 @@ class GoalHandler(BaseHandler):
         
         msg = f"{t(user_id, 'your_goals')}\n{t(user_id, 'page')}: {page + 1} / {total_pages}"
         
-        # Always edit the existing message if it's a callback
-        if hasattr(event, 'edit') and callable(getattr(event, 'edit')):
+        # Always edit the existing message for callback
+        try:
             await event.edit(msg, buttons=buttons, parse_mode=None)
-        else:
+        except Exception as e:
+            logger.error(f"Failed to edit goal list: {e}")
             await event.respond(msg, buttons=buttons, parse_mode=None)
     
     async def show_goal_details_menu(self, event, page=0):
@@ -116,10 +124,10 @@ class GoalHandler(BaseHandler):
             Button.inline(t(user_id, 'back'), b"goal_main")
         ])
         
-        # Always edit the existing message if it's a callback
-        if hasattr(event, 'edit') and callable(getattr(event, 'edit')):
+        try:
             await event.edit(t(user_id, 'goal_progress'), buttons=buttons, parse_mode=None)
-        else:
+        except Exception as e:
+            logger.error(f"Failed to edit goal details: {e}")
             await event.respond(t(user_id, 'goal_progress'), buttons=buttons, parse_mode=None)
     
     async def show_goal_history(self, event, goal_name):
@@ -144,8 +152,11 @@ class GoalHandler(BaseHandler):
         
         buttons = [[Button.inline(t(user_id, 'back'), b"gdet_0")]]
         
-        # Always edit the existing message
-        await event.edit(msg, buttons=buttons, parse_mode=None)
+        try:
+            await event.edit(msg, buttons=buttons, parse_mode=None)
+        except Exception as e:
+            logger.error(f"Failed to edit goal history: {e}")
+            await event.respond(msg, buttons=buttons, parse_mode=None)
     
     async def add_new_goal_prompt(self, event):
         """
@@ -160,11 +171,19 @@ class GoalHandler(BaseHandler):
         from bot.handlers.message import MessageHandler
         MessageHandler.user_states[event.sender_id] = "ST_NEW_GOAL"
         
-        await event.edit(
-            t(user_id, 'enter_goal'),
-            buttons=[Button.inline(t(user_id, 'back'), b"goal_main")],
-            parse_mode=None
-        )
+        try:
+            await event.edit(
+                t(user_id, 'enter_goal'),
+                buttons=[Button.inline(t(user_id, 'back'), b"goal_main")],
+                parse_mode=None
+            )
+        except Exception as e:
+            logger.error(f"Failed to edit add goal prompt: {e}")
+            await event.respond(
+                t(user_id, 'enter_goal'),
+                buttons=[Button.inline(t(user_id, 'back'), b"goal_main")],
+                parse_mode=None
+            )
     
     async def add_savings_prompt(self, event, goal_name):
         """
@@ -185,11 +204,19 @@ class GoalHandler(BaseHandler):
             [Button.inline(t(user_id, 'back'), b"glist_0")]
         ]
         
-        await event.edit(
-            t(user_id, 'enter_save_amount', goal_name),
-            buttons=buttons,
-            parse_mode=None
-        )
+        try:
+            await event.edit(
+                t(user_id, 'enter_save_amount', goal_name),
+                buttons=buttons,
+                parse_mode=None
+            )
+        except Exception as e:
+            logger.error(f"Failed to edit add savings prompt: {e}")
+            await event.respond(
+                t(user_id, 'enter_save_amount', goal_name),
+                buttons=buttons,
+                parse_mode=None
+            )
     
     async def delete_goal_confirm(self, event, goal_name):
         """
@@ -208,11 +235,19 @@ class GoalHandler(BaseHandler):
             ]
         ]
         
-        await event.edit(
-            t(user_id, 'delete_goal_confirm', goal_name),
-            buttons=buttons,
-            parse_mode=None
-        )
+        try:
+            await event.edit(
+                t(user_id, 'delete_goal_confirm', goal_name),
+                buttons=buttons,
+                parse_mode=None
+            )
+        except Exception as e:
+            logger.error(f"Failed to edit delete confirm: {e}")
+            await event.respond(
+                t(user_id, 'delete_goal_confirm', goal_name),
+                buttons=buttons,
+                parse_mode=None
+            )
     
     async def execute_delete_goal(self, event, goal_name):
         """
@@ -227,11 +262,19 @@ class GoalHandler(BaseHandler):
         GoalRepository.delete_by_name(user_id, goal_name)
         GoalHistoryRepository.delete_by_name(user_id, goal_name)
         
-        await event.edit(
-            t(user_id, 'goal_deleted', goal_name),
-            buttons=[Button.inline(t(user_id, 'back'), b"glist_0")],
-            parse_mode=None
-        )
+        try:
+            await event.edit(
+                t(user_id, 'goal_deleted', goal_name),
+                buttons=[Button.inline(t(user_id, 'back'), b"glist_0")],
+                parse_mode=None
+            )
+        except Exception as e:
+            logger.error(f"Failed to edit delete result: {e}")
+            await event.respond(
+                t(user_id, 'goal_deleted', goal_name),
+                buttons=[Button.inline(t(user_id, 'back'), b"glist_0")],
+                parse_mode=None
+            )
     
     async def execute_add_goal(self, user_id, text):
         """

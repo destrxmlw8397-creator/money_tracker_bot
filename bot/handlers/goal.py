@@ -31,7 +31,11 @@ class GoalHandler(BaseHandler):
             [Button.inline(t(user_id, 'cancel'), b"cancel_state")]
         ]
         
-        await event.respond(t(user_id, 'goal_manager'), buttons=buttons)
+        # Use edit instead of respond if it's a callback, otherwise respond
+        if hasattr(event, 'edit') and event.chat_id:
+            await event.edit(t(user_id, 'goal_manager'), buttons=buttons)
+        else:
+            await event.respond(t(user_id, 'goal_manager'), buttons=buttons)
     
     async def show_goal_list(self, event, page=0):
         """
@@ -72,11 +76,13 @@ class GoalHandler(BaseHandler):
             Button.inline(t(user_id, 'back'), b"goal_main")
         ])
         
-        await event.edit(
-            f"{t(user_id, 'your_goals')}\n"
-            f"{t(user_id, 'page')}: {page + 1} / {total_pages}",
-            buttons=buttons
-        )
+        msg = f"{t(user_id, 'your_goals')}\n{t(user_id, 'page')}: {page + 1} / {total_pages}"
+        
+        # Always edit the existing message if it's a callback
+        if hasattr(event, 'edit'):
+            await event.edit(msg, buttons=buttons)
+        else:
+            await event.respond(msg, buttons=buttons)
     
     async def show_goal_details_menu(self, event, page=0):
         """
@@ -103,7 +109,11 @@ class GoalHandler(BaseHandler):
             Button.inline(t(user_id, 'back'), b"goal_main")
         ])
         
-        await event.edit(t(user_id, 'goal_progress'), buttons=buttons)
+        # Always edit the existing message if it's a callback
+        if hasattr(event, 'edit'):
+            await event.edit(t(user_id, 'goal_progress'), buttons=buttons)
+        else:
+            await event.respond(t(user_id, 'goal_progress'), buttons=buttons)
     
     async def show_goal_history(self, event, goal_name):
         """
@@ -127,6 +137,7 @@ class GoalHandler(BaseHandler):
         
         buttons = [[Button.inline(t(user_id, 'back'), b"gdet_0")]]
         
+        # Always edit the existing message
         await event.edit(msg, buttons=buttons)
     
     async def add_new_goal_prompt(self, event):
@@ -137,6 +148,10 @@ class GoalHandler(BaseHandler):
             event: Telegram event
         """
         user_id = event.sender_id
+        
+        # Set user state in message handler
+        from bot.handlers.message import MessageHandler
+        MessageHandler.user_states[event.sender_id] = "ST_NEW_GOAL"
         
         await event.edit(
             t(user_id, 'enter_goal'),
@@ -152,6 +167,10 @@ class GoalHandler(BaseHandler):
             goal_name: Name of the goal
         """
         user_id = event.sender_id
+        
+        # Set user state in message handler
+        from bot.handlers.message import MessageHandler
+        MessageHandler.user_states[event.sender_id] = f"ST_SAVE_GOAL_{goal_name}"
         
         buttons = [
             [Button.inline(t(user_id, 'delete_goal_confirm', ''), f"delgoal_{goal_name}")],

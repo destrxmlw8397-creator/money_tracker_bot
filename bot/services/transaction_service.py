@@ -1,80 +1,170 @@
+"""
+Transaction Service Module
+Contains core business logic for all financial operations
+"""
+
 import os
 import json
 from datetime import datetime
 from fpdf import FPDF
-from bot.database.repositories import (
-    BalanceRepository, DebtRepository, DebtHistoryRepository
-)
-from bot.utils.helpers import get_current_month, get_current_date, get_current_time, get_user_now
-from bot.utils.temp_storage import store_temp_data
 from telethon import Button
 
-# Global user_states for PDF handler (to be moved to appropriate module)
-user_states = {}
+from bot.database.repositories import (
+    BalanceRepository,
+    DebtRepository,
+    DebtHistoryRepository,
+    OutstandingRepository,
+    OutstandingHistoryRepository,
+    GoalRepository,
+    GoalHistoryRepository
+)
+from bot.utils.helpers import (
+    get_current_month,
+    get_current_date,
+    get_current_time,
+    get_current_time_12hr,
+    get_user_now
+)
+from bot.utils.temp_storage import store_temp_data
+from bot.utils.translations import t
+
 
 def get_user_monthly_data(user_id, month_key):
+    """
+    Get monthly data for a user
+    
+    Args:
+        user_id: Telegram user ID
+        month_key: Month in format "Jan-2026"
+        
+    Returns:
+        dict: Monthly data dictionary
+    """
     return BalanceRepository.get_monthly_data(user_id, month_key)
 
+
 def update_user_db(user_id, amount, category="General", wallet_name="Cash", event=None):
+    """
+    Update user database with new transaction
+    
+    Args:
+        user_id: Telegram user ID
+        amount: Transaction amount (positive for income, negative for expense)
+        category: Transaction category
+        wallet_name: Wallet name
+        event: Optional Telegram event for timestamp
+    """
     user_time = get_user_now(event)
     month_key = user_time.strftime("%b-%Y")
     now_date = user_time.strftime("%d-%m-%Y")
     now_time = user_time.strftime("%H:%M")
     
     data = get_user_monthly_data(user_id, month_key)
-    entry = {"amount": amount, "category": category, "wallet": wallet_name, "date": now_date, "time": now_time}
+    entry = {
+        "amount": amount,
+        "category": category,
+        "wallet": wallet_name,
+        "date": now_date,
+        "time": now_time
+    }
     
+    # Update history and wallet balance
     data['history'].append(entry)
     data['wallets'][wallet_name] = data['wallets'].get(wallet_name, 0.0) + amount
     
+    # Update totals
     inc_income = amount if amount > 0 else 0
     inc_expense = abs(amount) if amount < 0 else 0
-    
     data['total_income'] += inc_income
     data['total_expense'] += inc_expense
     
+    # Save to database
     BalanceRepository.update_monthly_data(user_id, month_key, data)
 
+
 def update_wallet_only(user_id, amount, category, wallet_name, event=None):
+    """
+    Update wallet balance only (for debt/loan transactions)
+    
+    Args:
+        user_id: Telegram user ID
+        amount: Transaction amount
+        category: Transaction category
+        wallet_name: Wallet name
+        event: Optional Telegram event for timestamp
+    """
     user_time = get_user_now(event)
     month_key = user_time.strftime("%b-%Y")
     now_date = user_time.strftime("%d-%m-%Y")
     now_time = user_time.strftime("%H:%M")
     
     data = get_user_monthly_data(user_id, month_key)
-    entry = {"amount": amount, "category": category, "wallet": wallet_name, "date": now_date, "time": now_time, "is_debt_logic": True}
+    entry = {
+        "amount": amount,
+        "category": category,
+        "wallet": wallet_name,
+        "date": now_date,
+        "time": now_time,
+        "is_debt_logic": True
+    }
     
     data['history'].append(entry)
     data['wallets'][wallet_name] = data['wallets'].get(wallet_name, 0.0) + amount
     
     BalanceRepository.update_monthly_data(user_id, month_key, data)
 
+
 def get_lifetime_wallet_balance(user_id, wallet_name):
+    """
+    Calculate lifetime balance for a specific wallet
+    
+    Args:
+        user_id: Telegram user ID
+        wallet_name: Wallet name
+        
+    Returns:
+        float: Total balance across all months
+    """
     all_months = BalanceRepository.get_all_months(user_id)
     total = 0.0
     for month in all_months:
         total += month['wallets'].get(wallet_name, 0.0)
     return total
 
+
 def generate_pdf(user_id, month_key, history_filter=None, title_suffix=""):
+    """
+    Generate PDF report
+    
+    Args:
+        user_id: Telegram user ID
+        month_key: Month in format "Jan-2026"
+        history_filter: Optional date filter (DD-MM-YYYY)
+        title_suffix: Suffix for report title
+        
+    Returns:
+        str: Filename of generated PDF or None if no data
+    """
     data = get_user_monthly_data(user_id, month_key)
     if not data or not data.get('history'):
         return None
-
+    
     history = data['history']
     if history_filter:
         history = [e for e in history if e.get('date') == history_filter]
     
     if not history:
         return None
-
-    total_deposit = total_expenses = total_loan_from = total_loan_to = total_pay_from_tlt = total_pay_to_tlf = 0.0
-
-    for e in history:
-        amt = e.get('amount', 0.0)
-        is_debt = e.get("is_debt_logic", False)
-        is_out_rep = e.get("is_outstanding_repay", False)
-        cat = str(e.get('category', ''))
+    
+    # Calculate totals
+    total_deposit = total_expenses = total_loan_from = total_loan_to = 0.0
+    total_pay_from_tlt = total_pay_to_tlf = 0.0
+    
+    for entry in history:
+        amt = entry.get('amount', 0.0)
+        is_debt = entry.get("is_debt_logic", False)
+        is_out_rep = entry.get("is_outstanding_repay", False)
+        cat = str(entry.get('category', ''))
         
         if not is_debt or is_out_rep:
             if amt > 0:
@@ -92,15 +182,18 @@ def generate_pdf(user_id, month_key, history_filter=None, title_suffix=""):
                     total_loan_from += amt
                 else:
                     total_loan_to += abs(amt)
-
-    net_balance = (total_deposit + total_loan_from + total_pay_to_tlf) - (total_expenses + total_loan_to + total_pay_from_tlt)
-
+    
+    net_balance = (total_deposit + total_loan_from + total_pay_to_tlf) - \
+                  (total_expenses + total_loan_to + total_pay_from_tlt)
+    
+    # Create PDF
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', 14)
     pdf.cell(190, 10, txt=f"Money Report - {title_suffix or month_key}", ln=True, align='C')
     pdf.ln(5)
-
+    
+    # Summary table
     pdf.set_font("Arial", 'B', 7)
     pdf.set_fill_color(230, 230, 230)
     pdf.cell(27, 10, "Total Deposit", 1, 0, 'C', True)
@@ -118,11 +211,11 @@ def generate_pdf(user_id, month_key, history_filter=None, title_suffix=""):
     pdf.cell(27, 10, f"{total_loan_to:.2f}", 1, 0, 'C')
     pdf.cell(28, 10, f"{total_pay_from_tlt:.2f}", 1, 0, 'C')
     pdf.cell(28, 10, f"{total_pay_to_tlf:.2f}", 1, 0, 'C')
-    
     pdf.set_font("Arial", 'B', 8)
     pdf.cell(26, 10, f"{net_balance:.2f}", 1, 1, 'C')
     pdf.ln(10)
-
+    
+    # Transactions table header
     pdf.set_font("Arial", 'B', 10)
     pdf.set_fill_color(50, 50, 50)
     pdf.set_text_color(255, 255, 255)
@@ -135,9 +228,11 @@ def generate_pdf(user_id, month_key, history_filter=None, title_suffix=""):
     pdf.set_font("Arial", size=9)
     pdf.set_text_color(0, 0, 0)
     
+    # Transactions table rows
     for entry in history:
         if pdf.get_y() > 260:
             pdf.add_page()
+        
         pdf.cell(30, 9, str(entry.get('date', '')), 1, 0, 'C')
         cat = str(entry.get('category', 'General'))
         cat_clean = cat.encode('ascii', 'ignore').decode('ascii')
@@ -151,7 +246,19 @@ def generate_pdf(user_id, month_key, history_filter=None, title_suffix=""):
     pdf.output(file_name)
     return file_name
 
+
 def process_debt_entry_with_balance(uid, name, amt, dtype, wallet="Cash", event=None):
+    """
+    Process debt entry and update wallet balance
+    
+    Args:
+        uid: User ID
+        name: Person name
+        amt: Amount
+        dtype: 'give' or 'take'
+        wallet: Wallet name
+        event: Optional Telegram event
+    """
     user_time = get_user_now(event)
     DebtRepository.add_or_update(uid, name, dtype, amt)
     DebtHistoryRepository.add(
@@ -159,14 +266,30 @@ def process_debt_entry_with_balance(uid, name, amt, dtype, wallet="Cash", event=
         user_time.strftime("%d-%m-%Y"),
         user_time.strftime("%I:%M %p")
     )
+    
     if dtype == "give":
         update_wallet_only(uid, -amt, f"Loan to {name}", wallet, event=event)
     elif dtype == "take":
         update_wallet_only(uid, amt, f"Loan from {name}", wallet, event=event)
 
+
 def process_debt_repayment(uid, d_id, amt, wallet="Cash", event=None):
+    """
+    Process debt repayment and update wallet balance
+    
+    Args:
+        uid: User ID
+        d_id: Debt record ID
+        amt: Repayment amount
+        wallet: Wallet name
+        event: Optional Telegram event
+        
+    Returns:
+        float: New debt balance
+    """
     user_time = get_user_now(event)
     debt = DebtRepository.get_by_id(d_id)
+    
     if debt:
         new_bal = max(0, debt['amount'] - amt)
         DebtRepository.update_amount(d_id, new_bal)
@@ -175,16 +298,28 @@ def process_debt_repayment(uid, d_id, amt, wallet="Cash", event=None):
             user_time.strftime("%d-%m-%Y"),
             user_time.strftime("%I:%M %p")
         )
+        
         if debt['type'] == "give":
             update_wallet_only(uid, amt, f"Repayment from {debt['name']}", wallet, event=event)
         else:
             update_wallet_only(uid, -amt, f"Repayment to {debt['name']}", wallet, event=event)
+        
         return new_bal
     return 0
 
-# Wallet selection functions
+
 async def show_wallets_for_debt(event, user_id, action_type, name, amount, return_callback):
-    from bot.utils.translations import t
+    """
+    Show wallet selection for debt entry
+    
+    Args:
+        event: Telegram event
+        user_id: User ID
+        action_type: 'give', 'take', 'i_repaid', 'he_repaid'
+        name: Person name
+        amount: Amount
+        return_callback: Callback for cancel button
+    """
     month_key = get_current_month(event)
     data = get_user_monthly_data(user_id, month_key)
     wallets = data.get('wallets', {})
@@ -193,6 +328,7 @@ async def show_wallets_for_debt(event, user_id, action_type, name, amount, retur
         await event.respond(t(user_id, 'no_wallet'))
         return
     
+    # Set message based on action type
     if action_type == "give":
         msg = t(user_id, 'select_wallet_for_give', amount, name)
     elif action_type == "take":
@@ -204,6 +340,7 @@ async def show_wallets_for_debt(event, user_id, action_type, name, amount, retur
     else:
         msg = t(user_id, 'select_option')
     
+    # Create wallet buttons
     buttons = []
     for wallet_name, balance in wallets.items():
         temp_data = {
@@ -218,10 +355,23 @@ async def show_wallets_for_debt(event, user_id, action_type, name, amount, retur
         buttons.append([Button.inline(f"{wallet_name} ({balance:.2f})", callback_data)])
     
     buttons.append([Button.inline(t(user_id, 'cancel'), return_callback)])
+    
     await event.respond(msg, buttons=buttons)
 
+
 async def show_wallets_for_repayment(event, user_id, action_type, name, amount, debt_id, return_callback):
-    from bot.utils.translations import t
+    """
+    Show wallet selection for debt repayment
+    
+    Args:
+        event: Telegram event
+        user_id: User ID
+        action_type: 'i_repaid' or 'he_repaid'
+        name: Person name
+        amount: Amount
+        debt_id: Debt record ID
+        return_callback: Callback for cancel button
+    """
     month_key = get_current_month(event)
     data = get_user_monthly_data(user_id, month_key)
     wallets = data.get('wallets', {})
@@ -250,10 +400,23 @@ async def show_wallets_for_repayment(event, user_id, action_type, name, amount, 
         buttons.append([Button.inline(f"{wallet_name} ({balance:.2f})", callback_data)])
     
     buttons.append([Button.inline(t(user_id, 'cancel'), return_callback)])
+    
     await event.respond(msg, buttons=buttons)
 
+
 async def show_wallets_for_out_repayment(event, user_id, debt_type, name, amount, debt_id, return_callback):
-    from bot.utils.translations import t
+    """
+    Show wallet selection for outstanding repayment
+    
+    Args:
+        event: Telegram event
+        user_id: User ID
+        debt_type: 'give' or 'take'
+        name: Person name
+        amount: Amount
+        debt_id: Outstanding record ID
+        return_callback: Callback for cancel button
+    """
     month_key = get_current_month(event)
     data = get_user_monthly_data(user_id, month_key)
     wallets = data.get('wallets', {})

@@ -20,7 +20,7 @@ class PDFHandler(BaseHandler):
     Generates PDF reports for current month, specific month, today, or specific date
     """
     
-    # User states for PDF operations
+    # Shared user states (will be set from message handler)
     user_states = {}
     
     async def show_pdf_options(self, event):
@@ -73,12 +73,8 @@ class PDFHandler(BaseHandler):
         """
         user_id = event.sender_id
         
-        # Clear any existing PDF state first
-        self.user_states.pop(user_id, None)
-        
-        # Import MessageHandler to set state
-        from bot.handlers.message import MessageHandler
-        MessageHandler.user_states[user_id] = "ST_PDF_MONTH"
+        # Set state directly in this class's user_states
+        self.user_states[user_id] = "ST_PDF_MONTH"
         
         logger.info(f"User {user_id} set to ST_PDF_MONTH state")
         
@@ -174,12 +170,8 @@ class PDFHandler(BaseHandler):
         """
         user_id = event.sender_id
         
-        # Clear any existing PDF state first
-        self.user_states.pop(user_id, None)
-        
-        # Import MessageHandler to set state
-        from bot.handlers.message import MessageHandler
-        MessageHandler.user_states[user_id] = "ST_PDF_DATE"
+        # Set state directly in this class's user_states
+        self.user_states[user_id] = "ST_PDF_DATE"
         
         logger.info(f"User {user_id} set to ST_PDF_DATE state")
         
@@ -252,8 +244,6 @@ class PDFHandler(BaseHandler):
         Args:
             user_id: User ID
         """
-        from bot.handlers.message import MessageHandler
-        MessageHandler.user_states.pop(user_id, None)
         self.user_states.pop(user_id, None)
     
     def is_valid_month(self, month_str):

@@ -75,7 +75,10 @@ class PDFHandler(BaseHandler):
         
         # Clear any existing PDF state first
         self.user_states.pop(user_id, None)
-        self.user_states[user_id] = "ST_PDF_MONTH"
+        
+        # Import MessageHandler to set state
+        from bot.handlers.message import MessageHandler
+        MessageHandler.user_states[user_id] = "ST_PDF_MONTH"
         
         logger.info(f"User {user_id} set to ST_PDF_MONTH state")
         
@@ -94,17 +97,45 @@ class PDFHandler(BaseHandler):
             chat_id: Chat ID to send to
             month_input: Month in format "Jan-2026"
         """
-        file = generate_pdf(user_id, month_input, title_suffix=month_input)
-        
-        if file:
-            await self.client.send_file(
+        try:
+            logger.info(f"Generating PDF for month: {month_input}, user: {user_id}")
+            
+            # Validate month format
+            from datetime import datetime
+            try:
+                datetime.strptime(month_input, "%b-%Y")
+            except ValueError:
+                await self.client.send_message(
+                    chat_id, 
+                    "❌ ভুল ফরম্যাট! মাস-বছর লিখুন (যেমন: Jan-2026)",
+                    parse_mode=None
+                )
+                return
+            
+            file = generate_pdf(user_id, month_input, title_suffix=month_input)
+            
+            if file and os.path.exists(file):
+                await self.client.send_file(
+                    chat_id,
+                    file,
+                    caption=t(user_id, 'pdf_sent', month_input),
+                    parse_mode=None
+                )
+                os.remove(file)
+                logger.info(f"PDF sent successfully for month: {month_input}")
+            else:
+                await self.client.send_message(
+                    chat_id, 
+                    t(user_id, 'pdf_no_data_month'),
+                    parse_mode=None
+                )
+        except Exception as e:
+            logger.error(f"Error generating month PDF: {e}")
+            await self.client.send_message(
                 chat_id,
-                file,
-                caption=t(user_id, 'pdf_sent', month_input)
+                "❌ PDF জেনারেট করতে সমস্যা হয়েছে।",
+                parse_mode=None
             )
-            os.remove(file)
-        else:
-            await self.client.send_message(chat_id, t(user_id, 'pdf_no_data_month'), parse_mode=None)
     
     async def generate_today_pdf(self, event):
         """
@@ -145,7 +176,10 @@ class PDFHandler(BaseHandler):
         
         # Clear any existing PDF state first
         self.user_states.pop(user_id, None)
-        self.user_states[user_id] = "ST_PDF_DATE"
+        
+        # Import MessageHandler to set state
+        from bot.handlers.message import MessageHandler
+        MessageHandler.user_states[user_id] = "ST_PDF_DATE"
         
         logger.info(f"User {user_id} set to ST_PDF_DATE state")
         
@@ -164,24 +198,52 @@ class PDFHandler(BaseHandler):
             chat_id: Chat ID to send to
             date_input: Date in format "DD-MM-YYYY"
         """
-        month_key = get_current_month()
-        
-        file = generate_pdf(
-            user_id,
-            month_key,
-            history_filter=date_input,
-            title_suffix=f"Date ({date_input})"
-        )
-        
-        if file:
-            await self.client.send_file(
-                chat_id,
-                file,
-                caption=t(user_id, 'pdf_today_sent', date_input)
+        try:
+            logger.info(f"Generating PDF for date: {date_input}, user: {user_id}")
+            
+            # Validate date format
+            from datetime import datetime
+            try:
+                datetime.strptime(date_input, "%d-%m-%Y")
+            except ValueError:
+                await self.client.send_message(
+                    chat_id,
+                    "❌ ভুল ফরম্যাট! তারিখ লিখুন (যেমন: 01-01-2026)",
+                    parse_mode=None
+                )
+                return
+            
+            month_key = get_current_month()
+            
+            file = generate_pdf(
+                user_id,
+                month_key,
+                history_filter=date_input,
+                title_suffix=f"Date ({date_input})"
             )
-            os.remove(file)
-        else:
-            await self.client.send_message(chat_id, t(user_id, 'pdf_no_data'), parse_mode=None)
+            
+            if file and os.path.exists(file):
+                await self.client.send_file(
+                    chat_id,
+                    file,
+                    caption=t(user_id, 'pdf_today_sent', date_input),
+                    parse_mode=None
+                )
+                os.remove(file)
+                logger.info(f"PDF sent successfully for date: {date_input}")
+            else:
+                await self.client.send_message(
+                    chat_id,
+                    t(user_id, 'pdf_no_data'),
+                    parse_mode=None
+                )
+        except Exception as e:
+            logger.error(f"Error generating date PDF: {e}")
+            await self.client.send_message(
+                chat_id,
+                "❌ PDF জেনারেট করতে সমস্যা হয়েছে।",
+                parse_mode=None
+            )
     
     def clear_user_state(self, user_id):
         """
@@ -190,6 +252,8 @@ class PDFHandler(BaseHandler):
         Args:
             user_id: User ID
         """
+        from bot.handlers.message import MessageHandler
+        MessageHandler.user_states.pop(user_id, None)
         self.user_states.pop(user_id, None)
     
     def is_valid_month(self, month_str):

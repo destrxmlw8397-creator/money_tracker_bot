@@ -5,6 +5,7 @@ Handles regular messages (non-command) and user input states
 
 import re
 import math
+import logging
 from telethon import Button
 from bot.handlers.base import BaseHandler
 from bot.utils.translations import t
@@ -20,10 +21,12 @@ from bot.services.transaction_service import (
     show_wallets_for_out_repayment
 )
 
+logger = logging.getLogger(__name__)
+
 
 class MessageHandler(BaseHandler):
     """
-    Handler for regular messages and user state inputs
+    Handler for regular messages and user input states
     """
     
     # User states dictionary
@@ -116,34 +119,18 @@ class MessageHandler(BaseHandler):
                 # User is entering month for PDF (e.g., Jan-2026)
                 logger.info(f"Processing PDF MONTH state: {text}")
                 self.user_states.pop(uid)
-                file = generate_pdf(uid, text)
-                
-                if file:
-                    await self.client.send_file(
-                        event.chat_id, file,
-                        caption=t(uid, 'pdf_sent', text)
-                    )
-                    import os
-                    os.remove(file)
-                else:
-                    await event.respond(t(uid, 'pdf_no_data_month'), parse_mode=None)
+                from bot.handlers.pdf import PDFHandler
+                ph = PDFHandler(self.client)
+                await ph.generate_month_pdf(uid, event.chat_id, text)
                 return
             
             elif state == "ST_PDF_DATE":
                 # User is entering date for PDF (e.g., 01-01-2026)
                 logger.info(f"Processing PDF DATE state: {text}")
                 self.user_states.pop(uid)
-                file = generate_pdf(uid, get_current_month(event), history_filter=text)
-                
-                if file:
-                    await self.client.send_file(
-                        event.chat_id, file,
-                        caption=t(uid, 'pdf_today_sent', text)
-                    )
-                    import os
-                    os.remove(file)
-                else:
-                    await event.respond(t(uid, 'pdf_no_data'), parse_mode=None)
+                from bot.handlers.pdf import PDFHandler
+                ph = PDFHandler(self.client)
+                await ph.generate_date_pdf(uid, event.chat_id, text)
                 return
             
             # ==================== OUTSTANDING STATES ====================

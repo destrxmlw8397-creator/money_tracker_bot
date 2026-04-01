@@ -1,12 +1,14 @@
+"""
+Translations Module
+Handles multi-language support (Bengali and English)
+"""
+
 from bot.database.repositories import UserRepository
-import json
-import os
 
-# Translation dictionary - Complete from your original file
-# (Full translations from your MongoDB file - I'll include the complete version)
-
+# Complete translations dictionary
 TRANSLATIONS = {
     'bn': {
+        # General
         'back': '🔙 ব্যাক',
         'cancel': '❌ ক্যান্সেল',
         'yes': '✅ হ্যাঁ',
@@ -19,7 +21,11 @@ TRANSLATIONS = {
         'operation_cancelled': '❌ অপারেশন বাতিল করা হয়েছে।',
         'invalid_input': '❌ ইনপুট ভুল। আবার চেষ্টা করুন।',
         'select_option': 'নিচের বাটন থেকে অপশন সিলেক্ট করুন:',
+        
+        # Start command
         'welcome': '👤 **প্রো মাসিক হিসাব রক্ষক!**\n\n📅 বর্তমান মাস: **{}**\n\n📌 **কিভাবে হিসাব লিখবেন?**\n• শুধু সংখ্যা: `500` বা `-200`\n• ক্যাটাগরিসহ: `খাবার -300` বা `বেতন 20000`\n• ওয়ালেটসহ: `বিকাশ ২০০ বেতন` বা `ব্যাংক -৫০০ বিল` (ডিফল্ট: Cash)\n\n📌 **কমান্ডসমূহ:**\n• /balance - বর্তমান রিপোর্ট ও ওয়ালেট\n• /report - আজকের বা তারিখ ভিত্তিক রিপোর্ট\n• /history - বিস্তারিত ইতিহাস (Pagination)\n• /debt - লোন বা ধার ট্র্যাকার\n• /goal - সেভিংস গোল স্ট্যাটাস\n• /trns_money - এক ওয়ালেট থেকে অন্য ওয়ালেটে টাকা স্থানান্তর\n• /pdf - পিডিএফ রিপোর্ট ডাউনলোড\n• /setbudget - বাজেট সেট\n• /addwallet - নতুন ওয়ালেট যোগ করুন\n• /delwallet - ওয়ালেট মুছে ফেলুন\n• /undo - শেষ এন্ট্রি মুছুন\n• /reset - হিসাব মুছুন (উন্নত অপশন)',
+        
+        # Balance
         'lifetime_report': '🏦 **সর্বমোট হিসাব (Life-time Report)**',
         'total_income': '💰 মোট জমা',
         'total_expense': '💸 মোট খরচ',
@@ -37,6 +43,8 @@ TRANSLATIONS = {
         'remaining': '✅ **অবশিষ্ট: {} টাকা**',
         'budget_usage': '⚠️ বাজেট ব্যবহার: {:.1f}% ({:.1f}/{:.1f})',
         'wallet_balance': '💳 {}: {:.2f}',
+        
+        # Report
         'today_report': '📅 **আজকের রিপোর্ট ({})**',
         'date_report': '📅 **রিপোর্ট: {}**',
         'net': '⚖️ নীট',
@@ -45,10 +53,14 @@ TRANSLATIONS = {
         'date_wise': '🗓 তারিখ অনুযায়ী আয় ও ব্যয়',
         'monthly_wise': '📆 মাসিক আয় ও ব্যয়',
         'enter_date': '📅 নির্দিষ্ট তারিখের রিপোর্ট দেখতে তারিখটি লিখুন।\nউদাহরণ: `11-01-2026`',
+        
+        # History
         'detailed_history': '📂 **বিস্তারিত ইতিহাস ({})**',
         'previous': '⬅️ আগের',
         'next': 'পরের ➡️',
         'no_history': '❌ কোনো তথ্য নেই।',
+        
+        # PDF
         'pdf_options': '📄 **কোন ধরণের পিডিএফ রিপোর্ট চান?**',
         'pdf_current': '📊 চলতি মাসের রিপোর্ট',
         'pdf_month_wise': '🗓 মাস ভিত্তিক রিপোর্ট',
@@ -60,6 +72,8 @@ TRANSLATIONS = {
         'pdf_today_sent': '✅ আজকের ({}) রিপোর্ট।',
         'pdf_no_data': '❌ আজ কোনো লেনদেন হয়নি।',
         'pdf_no_data_month': '❌ তথ্য পাওয়া যায়নি।',
+        
+        # Debt
         'debt_manager': '⚖️ **লোন ও ধার ম্যানেজার**',
         'give': '💸 দিয়েছি',
         'take': '💰 নিয়েছি',
@@ -91,6 +105,8 @@ TRANSLATIONS = {
         'select_wallet_for_he_repaid': '💳 কোন ওয়ালেটে **{}** টাকা **{}** এর কাছ থেকে পরিশোধ নিবেন?',
         'select_wallet_for_out_give': '💳 **{}** টাকা **{}** এর কাছ থেকে পাবেন। কোন ওয়ালেটে নিবেন?',
         'select_wallet_for_out_take': '💳 **{}** টাকা **{}** কে দিবেন। কোন ওয়ালেট থেকে দিবেন?',
+        
+        # Outstanding
         'out_manager': '💳 **আউটস্ট্যান্ডিং পেমেন্ট ম্যানেজার**\n(এন্ট্রি দিলে ব্যালেন্স পরিবর্তন হবে না, কিন্তু রিপে করলে হবে)',
         'give_work': '💸 দিয়েছি (Work)',
         'take_work': '💰 নিয়েছি (Work)',
@@ -107,6 +123,8 @@ TRANSLATIONS = {
         'repay_list_work': '👤 রিপে তালিকা (Work):',
         'delete_out_confirm': '⚠️ আপনি কি নিশ্চিত যে **{}** এর সকল আউটস্ট্যান্ডিং ডাটা মুছে ফেলতে চান?',
         'out_deleted': '🗑️ **{}** এর সকল Work ডাটা মুছে ফেলা হয়েছে।',
+        
+        # Goal
         'goal_manager': '🎯 **সেভিংস গোল ম্যানেজার**',
         'goal_list': '📋 গোল লিস্ট',
         'goal_details': '📊 গোলের বিবরণ',
@@ -121,6 +139,8 @@ TRANSLATIONS = {
         'delete_goal_confirm': '⚠️ আপনি কি নিশ্চিত যে **\'{}\'** গোলটি ডিলিট করতে চান?',
         'goal_deleted': '🗑️ গোল **\'{}\'** ডিলিট করা হয়েছে।',
         'add_new_goal': '➕ নতুন গোল',
+        
+        # Transfer
         'transfer_from': '💳 **কোন ওয়ালেট থেকে ট্রান্সফার করতে চান?**',
         'transfer_to': '💳 **উৎস: {}**\n\n📥 **কোন ওয়ালেটে পাঠাবেন?**',
         'enter_transfer_amount': '💰 কত টাকা **{}** থেকে **{}** এ ট্রান্সফার করতে চান?\nশুধুমাত্র সংখ্যাটি লিখুন।',
@@ -128,28 +148,39 @@ TRANSLATIONS = {
         'insufficient_balance': '❌ পর্যাপ্ত ব্যালেন্স নেই! **{}** এ উপলব্ধ: **{:.2f}** টাকা, প্রয়োজন: **{:.2f}** টাকা',
         'back_to_from': '🔙 পেছনে ফিরুন',
         'lifetime_balance_info': 'ℹ️ **লাইফটাইম ব্যালেন্স**: {:.2f} টাকা',
+        
+        # Wallet
         'select_wallet_delete': '💳 **ডিলিট করার জন্য ওয়ালেট সিলেক্ট করুন:**',
         'delete_wallet_confirm': '⚠️ আপনি কি নিশ্চিত যে আপনি **\'{}\'** ওয়ালেটটি ডিলিট করতে চান? (ব্যালেন্স হারাবে)',
         'wallet_deleted': '🗑️ ওয়ালেট **\'{}\'** সফলভাবে ডিলিট করা হয়েছে।',
         'wallet_exists': '❌ ওয়ালেট \'{}\' আগে থেকেই আছে।',
         'wallet_added': '✅ নতুন ওয়ালেট \'{}\' যোগ করা হয়েছে।',
         'enter_wallet_name': '💳 নতুন ওয়ালেটের নাম লিখুন (যেমন: Rocket বা Nagad)।',
+        
+        # Budget
         'enter_budget': '💰 আপনার বাজেট কত তা লিখুন।',
         'budget_set': '✅ বাজেট {} সেট হয়েছে।',
+        
+        # Reset
         'reset_confirm': '⚠️ সব ডাটা মুছে ফেলতে চান?',
         'reset_month_confirm': '⚠️ আপনি কি নিশ্চিত যে **{}** মাসের সব হিসাব মুছে ফেলবেন?',
         'reset_month_success': '✅ **{}** মাসের সব হিসাব সফলভাবে মুছে ফেলা হয়েছে!',
         'reset_all_success': '🗑️ সব ডাটা মুছে ফেলা হয়েছে।',
+        
+        # Entry
         'entry_success': '✅ {}: **{}**\n📂 খাত: **{}**\n💳 ওয়ালেট: **{}**',
         'deposit': '💰 জমা',
         'expense': '💸 খরচ',
         'undo_success': '🗑 শেষ এন্ট্রি ({}) মোছা হয়েছে।',
+        
+        # Language
         'select_language': '🌐 **আপনার ভাষা নির্বাচন করুন:**',
         'language_set': '✅ ভাষা সেট করা হয়েছে: বাংলা',
         'lang_bn': '🇧🇩 বাংলা',
         'lang_en': '🇬🇧 English'
     },
     'en': {
+        # General
         'back': '🔙 Back',
         'cancel': '❌ Cancel',
         'yes': '✅ Yes',
@@ -162,7 +193,11 @@ TRANSLATIONS = {
         'operation_cancelled': '❌ Operation cancelled.',
         'invalid_input': '❌ Invalid input. Try again.',
         'select_option': 'Select an option from below:',
+        
+        # Start command
         'welcome': '👤 **Pro Monthly Account Keeper!**\n\n📅 Current month: **{}**\n\n📌 **How to add entries?**\n• Just number: `500` or `-200`\n• With category: `Food -300` or `Salary 20000`\n• With wallet: `bkash 200 salary` or `bank -500 bill` (Default: Cash)\n\n📌 **Commands:**\n• /balance - Current report & wallet\n• /report - Today or date wise report\n• /history - Detailed history (Pagination)\n• /debt - Loan tracker\n• /goal - Savings goal status\n• /trns_money - Transfer money between wallets\n• /pdf - Download PDF report\n• /setbudget - Set budget\n• /addwallet - Add new wallet\n• /delwallet - Delete wallet\n• /undo - Delete last entry\n• /reset - Delete all data (advanced)',
+        
+        # Balance
         'lifetime_report': '🏦 **Lifetime Report**',
         'total_income': '💰 Total Income',
         'total_expense': '💸 Total Expense',
@@ -180,6 +215,8 @@ TRANSLATIONS = {
         'remaining': '✅ **Remaining: {} Taka**',
         'budget_usage': '⚠️ Budget Usage: {:.1f}% ({:.1f}/{:.1f})',
         'wallet_balance': '💳 {}: {:.2f}',
+        
+        # Report
         'today_report': '📅 **Today\'s Report ({})**',
         'date_report': '📅 **Report: {}**',
         'net': '⚖️ Net',
@@ -188,10 +225,14 @@ TRANSLATIONS = {
         'date_wise': '🗓 Date Wise Income & Expenses',
         'monthly_wise': '📆 Monthly Wise Income & Expenses',
         'enter_date': '📅 Enter date to see report.\nExample: `11-01-2026`',
+        
+        # History
         'detailed_history': '📂 **Detailed History ({})**',
         'previous': '⬅️ Previous',
         'next': 'Next ➡️',
         'no_history': '❌ No history found.',
+        
+        # PDF
         'pdf_options': '📄 **Which PDF report do you want?**',
         'pdf_current': '📊 Current Month Report',
         'pdf_month_wise': '🗓 Month Wise Report',
@@ -203,6 +244,8 @@ TRANSLATIONS = {
         'pdf_today_sent': '✅ Today\'s ({}) report.',
         'pdf_no_data': '❌ No transactions today.',
         'pdf_no_data_month': '❌ No data found.',
+        
+        # Debt
         'debt_manager': '⚖️ **Loan & Debt Manager**',
         'give': '💸 Give',
         'take': '💰 Take',
@@ -234,6 +277,8 @@ TRANSLATIONS = {
         'select_wallet_for_he_repaid': '💳 Select wallet to receive **{}** from **{}**?',
         'select_wallet_for_out_give': '💳 You will receive **{}** Taka from **{}**. Which wallet to receive?',
         'select_wallet_for_out_take': '💳 You will pay **{}** Taka to **{}**. Which wallet to pay from?',
+        
+        # Outstanding
         'out_manager': '💳 **Outstanding Payment Management**\n(Entry won\'t change balance, but repayment will)',
         'give_work': '💸 Give Work',
         'take_work': '💰 Take Work',
@@ -250,6 +295,8 @@ TRANSLATIONS = {
         'repay_list_work': '👤 Repayment list (Work):',
         'delete_out_confirm': '⚠️ Are you sure you want to delete all Outstanding data of **{}**?',
         'out_deleted': '🗑️ All Work data of **{}** deleted.',
+        
+        # Goal
         'goal_manager': '🎯 **Savings Goal Manager**',
         'goal_list': '📋 Goal List',
         'goal_details': '📊 Details Of Goal\'s',
@@ -264,6 +311,8 @@ TRANSLATIONS = {
         'delete_goal_confirm': '⚠️ Are you sure you want to delete **\'{}\'** goal?',
         'goal_deleted': '🗑️ Goal **\'{}\'** deleted.',
         'add_new_goal': '➕ Add New',
+        
+        # Transfer
         'transfer_from': '💳 **Select wallet to transfer from?**',
         'transfer_to': '💳 **Source: {}**\n\n📥 **Select wallet to send to?**',
         'enter_transfer_amount': '💰 How much to transfer from **{}** to **{}**?\nJust the number.',
@@ -271,22 +320,32 @@ TRANSLATIONS = {
         'insufficient_balance': '❌ Insufficient balance! Available in **{}**: **{:.2f}**, Required: **{:.2f}**',
         'back_to_from': '🔙 Back to from',
         'lifetime_balance_info': 'ℹ️ **Lifetime Balance**: {:.2f}',
+        
+        # Wallet
         'select_wallet_delete': '💳 **Select wallet to delete:**',
         'delete_wallet_confirm': '⚠️ Are you sure you want to delete **\'{}\'** wallet? (Balance will be lost)',
         'wallet_deleted': '🗑️ Wallet **\'{}\'** deleted successfully.',
         'wallet_exists': '❌ Wallet \'{}\' already exists.',
         'wallet_added': '✅ New wallet \'{}\' added.',
         'enter_wallet_name': '💳 Enter new wallet name (e.g., Rocket or Nagad).',
+        
+        # Budget
         'enter_budget': '💰 Enter your budget amount.',
         'budget_set': '✅ Budget set to {}.',
+        
+        # Reset
         'reset_confirm': '⚠️ Delete all data?',
         'reset_month_confirm': '⚠️ Are you sure you want to delete all data for **{}** month?',
         'reset_month_success': '✅ All data for **{}** month deleted successfully!',
         'reset_all_success': '🗑️ All data deleted.',
+        
+        # Entry
         'entry_success': '✅ {}: **{}**\n📂 Category: **{}**\n💳 Wallet: **{}**',
         'deposit': '💰 Deposit',
         'expense': '💸 Expense',
         'undo_success': '🗑 Last entry ({}) deleted.',
+        
+        # Language
         'select_language': '🌐 **Select your language:**',
         'language_set': '✅ Language set: English',
         'lang_bn': '🇧🇩 বাংলা',
@@ -296,13 +355,43 @@ TRANSLATIONS = {
 
 _user_repo = UserRepository()
 
+
 def get_user_lang(user_id):
+    """
+    Get user language preference
+    
+    Args:
+        user_id: Telegram user ID
+        
+    Returns:
+        str: 'bn' or 'en'
+    """
     return _user_repo.get_language(user_id)
 
+
 def set_user_lang(user_id, lang):
+    """
+    Set user language preference
+    
+    Args:
+        user_id: Telegram user ID
+        lang: 'bn' or 'en'
+    """
     _user_repo.set_language(user_id, lang)
 
+
 def t(user_id, key, *args):
+    """
+    Get translated text for a user
+    
+    Args:
+        user_id: Telegram user ID
+        key: Translation key
+        *args: Format arguments
+        
+    Returns:
+        str: Translated and formatted text
+    """
     lang = get_user_lang(user_id)
     text = TRANSLATIONS.get(lang, TRANSLATIONS['bn']).get(key, key)
     if args:

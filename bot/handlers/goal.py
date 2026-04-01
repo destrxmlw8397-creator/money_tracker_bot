@@ -4,10 +4,13 @@ Handles /goal command for savings goals management
 """
 
 import math
+import logging
 from telethon import Button
 from bot.handlers.base import BaseHandler
 from bot.utils.translations import t
 from bot.database.repositories import GoalRepository, GoalHistoryRepository
+
+logger = logging.getLogger(__name__)
 
 
 class GoalHandler(BaseHandler):
@@ -31,11 +34,11 @@ class GoalHandler(BaseHandler):
             [Button.inline(t(user_id, 'cancel'), b"cancel_state")]
         ]
         
-        # Use edit instead of respond if it's a callback, otherwise respond
-        if hasattr(event, 'edit') and event.chat_id:
-            await event.edit(t(user_id, 'goal_manager'), buttons=buttons)
+        # Use edit if it's a callback, otherwise respond
+        if hasattr(event, 'edit') and callable(getattr(event, 'edit')):
+            await event.edit(t(user_id, 'goal_manager'), buttons=buttons, parse_mode=None)
         else:
-            await event.respond(t(user_id, 'goal_manager'), buttons=buttons)
+            await event.respond(t(user_id, 'goal_manager'), buttons=buttons, parse_mode=None)
     
     async def show_goal_list(self, event, page=0):
         """
@@ -79,10 +82,10 @@ class GoalHandler(BaseHandler):
         msg = f"{t(user_id, 'your_goals')}\n{t(user_id, 'page')}: {page + 1} / {total_pages}"
         
         # Always edit the existing message if it's a callback
-        if hasattr(event, 'edit'):
-            await event.edit(msg, buttons=buttons)
+        if hasattr(event, 'edit') and callable(getattr(event, 'edit')):
+            await event.edit(msg, buttons=buttons, parse_mode=None)
         else:
-            await event.respond(msg, buttons=buttons)
+            await event.respond(msg, buttons=buttons, parse_mode=None)
     
     async def show_goal_details_menu(self, event, page=0):
         """
@@ -94,6 +97,10 @@ class GoalHandler(BaseHandler):
         """
         user_id = event.sender_id
         rows = GoalRepository.get_all(user_id)
+        
+        if not rows:
+            await event.edit(t(user_id, 'no_goals'), buttons=[[Button.inline(t(user_id, 'back'), b"goal_main")]], parse_mode=None)
+            return
         
         buttons = []
         for row in rows:
@@ -110,10 +117,10 @@ class GoalHandler(BaseHandler):
         ])
         
         # Always edit the existing message if it's a callback
-        if hasattr(event, 'edit'):
-            await event.edit(t(user_id, 'goal_progress'), buttons=buttons)
+        if hasattr(event, 'edit') and callable(getattr(event, 'edit')):
+            await event.edit(t(user_id, 'goal_progress'), buttons=buttons, parse_mode=None)
         else:
-            await event.respond(t(user_id, 'goal_progress'), buttons=buttons)
+            await event.respond(t(user_id, 'goal_progress'), buttons=buttons, parse_mode=None)
     
     async def show_goal_history(self, event, goal_name):
         """
@@ -138,7 +145,7 @@ class GoalHandler(BaseHandler):
         buttons = [[Button.inline(t(user_id, 'back'), b"gdet_0")]]
         
         # Always edit the existing message
-        await event.edit(msg, buttons=buttons)
+        await event.edit(msg, buttons=buttons, parse_mode=None)
     
     async def add_new_goal_prompt(self, event):
         """
@@ -155,7 +162,8 @@ class GoalHandler(BaseHandler):
         
         await event.edit(
             t(user_id, 'enter_goal'),
-            buttons=[Button.inline(t(user_id, 'back'), b"goal_main")]
+            buttons=[Button.inline(t(user_id, 'back'), b"goal_main")],
+            parse_mode=None
         )
     
     async def add_savings_prompt(self, event, goal_name):
@@ -173,13 +181,14 @@ class GoalHandler(BaseHandler):
         MessageHandler.user_states[event.sender_id] = f"ST_SAVE_GOAL_{goal_name}"
         
         buttons = [
-            [Button.inline(t(user_id, 'delete_goal_confirm', ''), f"delgoal_{goal_name}")],
+            [Button.inline(t(user_id, 'delete_goal_confirm'), f"delgoal_{goal_name}")],
             [Button.inline(t(user_id, 'back'), b"glist_0")]
         ]
         
         await event.edit(
             t(user_id, 'enter_save_amount', goal_name),
-            buttons=buttons
+            buttons=buttons,
+            parse_mode=None
         )
     
     async def delete_goal_confirm(self, event, goal_name):
@@ -201,7 +210,8 @@ class GoalHandler(BaseHandler):
         
         await event.edit(
             t(user_id, 'delete_goal_confirm', goal_name),
-            buttons=buttons
+            buttons=buttons,
+            parse_mode=None
         )
     
     async def execute_delete_goal(self, event, goal_name):
@@ -219,7 +229,8 @@ class GoalHandler(BaseHandler):
         
         await event.edit(
             t(user_id, 'goal_deleted', goal_name),
-            buttons=[Button.inline(t(user_id, 'back'), b"glist_0")]
+            buttons=[Button.inline(t(user_id, 'back'), b"glist_0")],
+            parse_mode=None
         )
     
     async def execute_add_goal(self, user_id, text):
@@ -263,6 +274,10 @@ class GoalHandler(BaseHandler):
         """
         try:
             GoalRepository.add_savings(user_id, goal_name, amount)
+            GoalHistoryRepository.add(
+                user_id, goal_name, amount,
+                get_current_date(None), get_current_time(None)
+            )
             return True, f"✅ সফলভাবে {amount:.2f} টাকা '{goal_name}' লক্ষ্যে জমা করা হয়েছে।"
         except Exception as e:
             return False, f"❌ ত্রুটি: {e}"

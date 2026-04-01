@@ -23,9 +23,7 @@ class GoalHandler(BaseHandler):
     async def show_goal_menu(self, event):
         """
         Handle /goal command - show main goal management menu
-        
-        Args:
-            event: Telegram event
+        This is called when user types /goal (first time)
         """
         user_id = event.sender_id
         
@@ -35,16 +33,29 @@ class GoalHandler(BaseHandler):
             [Button.inline(t(user_id, 'cancel'), b"cancel_state")]
         ]
         
-        # সবসময় respond ব্যবহার করুন (MongoDB version এর মতো)
+        # MongoDB version uses respond for first time command
         await event.respond(t(user_id, 'goal_manager'), buttons=buttons, parse_mode=None)
+    
+    async def show_goal_menu_callback(self, event):
+        """
+        Show goal menu when coming back from callback (edit existing message)
+        This is called when user clicks back button from within goal menu
+        """
+        user_id = event.sender_id
+        
+        buttons = [
+            [Button.inline(t(user_id, 'goal_list'), b"glist_0")],
+            [Button.inline(t(user_id, 'goal_details'), b"gdet_0")],
+            [Button.inline(t(user_id, 'cancel'), b"cancel_state")]
+        ]
+        
+        # MongoDB version uses edit for callback back navigation
+        await event.edit(t(user_id, 'goal_manager'), buttons=buttons, parse_mode=None)
     
     async def show_goal_list(self, event, page=0):
         """
         Show list of all goals with saved/target amounts
-        
-        Args:
-            event: Telegram event
-            page: Page number for pagination
+        This is called from callback when user clicks goal_list button
         """
         user_id = event.sender_id
         rows = GoalRepository.get_all(user_id)
@@ -79,22 +90,19 @@ class GoalHandler(BaseHandler):
         
         msg = f"{t(user_id, 'your_goals')}\n{t(user_id, 'page')}: {page + 1} / {total_pages}"
         
-        # MongoDB version-এর মতো respond ব্যবহার করুন
-        await event.respond(msg, buttons=buttons, parse_mode=None)
+        # MongoDB version uses edit for callback
+        await event.edit(msg, buttons=buttons, parse_mode=None)
     
     async def show_goal_details_menu(self, event, page=0):
         """
         Show progress percentages for all goals
-        
-        Args:
-            event: Telegram event
-            page: Page number for pagination (not used currently)
+        This is called from callback when user clicks goal_details button
         """
         user_id = event.sender_id
         rows = GoalRepository.get_all(user_id)
         
         if not rows:
-            await event.respond(t(user_id, 'no_goals'), buttons=[[Button.inline(t(user_id, 'back'), b"goal_main")]], parse_mode=None)
+            await event.edit(t(user_id, 'no_goals'), buttons=[[Button.inline(t(user_id, 'back'), b"goal_main")]], parse_mode=None)
             return
         
         buttons = []
@@ -111,16 +119,13 @@ class GoalHandler(BaseHandler):
             Button.inline(t(user_id, 'back'), b"goal_main")
         ])
         
-        # MongoDB version-এর মতো respond ব্যবহার করুন
-        await event.respond(t(user_id, 'goal_progress'), buttons=buttons, parse_mode=None)
+        # MongoDB version uses edit for callback
+        await event.edit(t(user_id, 'goal_progress'), buttons=buttons, parse_mode=None)
     
     async def show_goal_history(self, event, goal_name):
         """
         Show transaction history for a specific goal
-        
-        Args:
-            event: Telegram event
-            goal_name: Name of the goal
+        This is called from callback when user clicks on a goal from details menu
         """
         user_id = event.sender_id
         history = GoalHistoryRepository.get_by_name(user_id, goal_name, limit=10)
@@ -136,15 +141,13 @@ class GoalHandler(BaseHandler):
         
         buttons = [[Button.inline(t(user_id, 'back'), b"gdet_0")]]
         
-        # MongoDB version-এর মতো respond ব্যবহার করুন
-        await event.respond(msg, buttons=buttons, parse_mode=None)
+        # MongoDB version uses edit for callback
+        await event.edit(msg, buttons=buttons, parse_mode=None)
     
     async def add_new_goal_prompt(self, event):
         """
         Show prompt to add new goal
-        
-        Args:
-            event: Telegram event
+        This is called from callback when user clicks add_new_goal button
         """
         user_id = event.sender_id
         
@@ -152,8 +155,8 @@ class GoalHandler(BaseHandler):
         from bot.handlers.message import MessageHandler
         MessageHandler.user_states[event.sender_id] = "ST_NEW_GOAL"
         
-        # MongoDB version-এর মতো respond ব্যবহার করুন
-        await event.respond(
+        # MongoDB version uses edit for callback
+        await event.edit(
             t(user_id, 'enter_goal'),
             buttons=[Button.inline(t(user_id, 'back'), b"goal_main")],
             parse_mode=None
@@ -162,10 +165,7 @@ class GoalHandler(BaseHandler):
     async def add_savings_prompt(self, event, goal_name):
         """
         Show prompt to add savings to a goal
-        
-        Args:
-            event: Telegram event
-            goal_name: Name of the goal
+        This is called from callback when user clicks on a goal from goal list
         """
         user_id = event.sender_id
         
@@ -178,8 +178,8 @@ class GoalHandler(BaseHandler):
             [Button.inline(t(user_id, 'back'), b"glist_0")]
         ]
         
-        # MongoDB version-এর মতো respond ব্যবহার করুন
-        await event.respond(
+        # MongoDB version uses edit for callback
+        await event.edit(
             t(user_id, 'enter_save_amount', goal_name),
             buttons=buttons,
             parse_mode=None
@@ -188,10 +188,7 @@ class GoalHandler(BaseHandler):
     async def delete_goal_confirm(self, event, goal_name):
         """
         Show confirmation dialog for goal deletion
-        
-        Args:
-            event: Telegram event
-            goal_name: Name of the goal
+        This is called from callback when user clicks delete button
         """
         user_id = event.sender_id
         
@@ -202,8 +199,8 @@ class GoalHandler(BaseHandler):
             ]
         ]
         
-        # MongoDB version-এর মতো respond ব্যবহার করুন
-        await event.respond(
+        # MongoDB version uses edit for callback
+        await event.edit(
             t(user_id, 'delete_goal_confirm', goal_name),
             buttons=buttons,
             parse_mode=None
@@ -212,18 +209,15 @@ class GoalHandler(BaseHandler):
     async def execute_delete_goal(self, event, goal_name):
         """
         Execute goal deletion
-        
-        Args:
-            event: Telegram event
-            goal_name: Name of the goal to delete
+        This is called from callback when user confirms deletion
         """
         user_id = event.sender_id
         
         GoalRepository.delete_by_name(user_id, goal_name)
         GoalHistoryRepository.delete_by_name(user_id, goal_name)
         
-        # MongoDB version-এর মতো respond ব্যবহার করুন
-        await event.respond(
+        # MongoDB version uses edit for callback
+        await event.edit(
             t(user_id, 'goal_deleted', goal_name),
             buttons=[Button.inline(t(user_id, 'back'), b"glist_0")],
             parse_mode=None
@@ -232,13 +226,7 @@ class GoalHandler(BaseHandler):
     async def execute_add_goal(self, user_id, text):
         """
         Process new goal input
-        
-        Args:
-            user_id: User ID
-            text: Input text containing name and target
-            
-        Returns:
-            tuple: (success, message, goal_name)
+        This is called from message handler when user enters goal details
         """
         try:
             parts = text.split()
@@ -259,14 +247,7 @@ class GoalHandler(BaseHandler):
     async def execute_add_savings(self, user_id, goal_name, amount):
         """
         Process savings addition to goal
-        
-        Args:
-            user_id: User ID
-            goal_name: Name of the goal
-            amount: Amount to add
-            
-        Returns:
-            tuple: (success, message)
+        This is called from message handler when user enters savings amount
         """
         try:
             GoalRepository.add_savings(user_id, goal_name, amount)

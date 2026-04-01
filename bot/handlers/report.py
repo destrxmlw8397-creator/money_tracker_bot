@@ -3,6 +3,7 @@ Report Handler Module
 Handles /report command with today, date-wise, and monthly reports
 """
 
+import math
 from telethon import Button
 from bot.handlers.base import BaseHandler
 from bot.utils.translations import t
@@ -133,15 +134,25 @@ class ReportHandler(BaseHandler):
         all_months = BalanceRepository.get_all_months(user_id)
         
         if not all_months:
-            await self.client.send_message(chat_id, t(user_id, 'no_data'))
+            msg = t(user_id, 'no_data')
+            if message_id:
+                try:
+                    await self.client.edit_message(chat_id, message_id, msg)
+                except Exception:
+                    await self.client.send_message(chat_id, msg)
+            else:
+                await self.client.send_message(chat_id, msg)
             return
         
         # Sort months latest first
         all_months = all_months[::-1]
         total_months = len(all_months)
         
-        if page_index < 0 or page_index >= total_months:
-            return
+        # Ensure page_index is within bounds
+        if page_index < 0:
+            page_index = 0
+        if page_index >= total_months:
+            page_index = total_months - 1
         
         target = all_months[page_index]
         month_key = target.get('month', 'Unknown')
@@ -168,17 +179,20 @@ class ReportHandler(BaseHandler):
             else:
                 daily_stats[d]['exp'] += abs(amt)
         
-        # Build message
+        # Build message - ensure it's never empty
         msg = f"📅 **{t(user_id, 'monthly_report', month_key)}**\n━━━━━━━━━━━━━━━━━━\n"
         
-        for date in sorted(daily_stats.keys(), reverse=True):
-            stats = daily_stats[date]
-            net = stats['inc'] - stats['exp']
-            msg += f"🗓 **{date}**\n"
-            msg += f"{t(user_id, 'total_income')}: {stats['inc']:.0f} | "
-            msg += f"{t(user_id, 'total_expense')}: {stats['exp']:.0f} | "
-            msg += f"{t(user_id, 'net')}: {net:.0f}\n"
-            msg += "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n"
+        if not daily_stats:
+            msg += t(user_id, 'no_transactions') + "\n"
+        else:
+            for date in sorted(daily_stats.keys(), reverse=True):
+                stats = daily_stats[date]
+                net = stats['inc'] - stats['exp']
+                msg += f"🗓 **{date}**\n"
+                msg += f"{t(user_id, 'total_income')}: {stats['inc']:.0f} | "
+                msg += f"{t(user_id, 'total_expense')}: {stats['exp']:.0f} | "
+                msg += f"{t(user_id, 'net')}: {net:.0f}\n"
+                msg += "┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n"
         
         msg += f"{t(user_id, 'total_income')}: {total_inc:.2f}\n"
         msg += f"{t(user_id, 'total_expense')}: {total_exp:.2f}\n"
@@ -199,8 +213,16 @@ class ReportHandler(BaseHandler):
         
         buttons.append([Button.inline(t(user_id, 'back'), b"rep_main")])
         
-        # Send or edit message
-        if message_id:
-            await self.client.edit_message(chat_id, message_id, msg, buttons=buttons)
-        else:
-            await self.client.send_message(chat_id, msg, buttons=buttons)
+        # Send or edit message with error handling
+        try:
+            if message_id:
+                try:
+                    await self.client.edit_message(chat_id, message_id, msg, buttons=buttons)
+                except Exception as e:
+                    # If edit fails, send as new message
+                    await self.client.send_message(chat_id, msg, buttons=buttons)
+            else:
+                await self.client.send_message(chat_id, msg, buttons=buttons)
+        except Exception as e:
+            # Last resort: send without buttons
+            await self.client.send_message(chat_id, msg)

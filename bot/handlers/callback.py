@@ -431,13 +431,11 @@ class CallbackHandler(BaseHandler):
                            parse_mode=None)
             return
 
-        # ==================== GOAL HANDLERS (FIXED) ====================
+        # ==================== GOAL HANDLERS ====================
         elif data == "goal_main":
-            from bot.handlers.message import MessageHandler
-            MessageHandler.user_states.pop(user_id, None)
             from bot.handlers.goal import GoalHandler
             gh = GoalHandler(self.client)
-            await gh.show_goal_menu(event)
+            await gh.show_goal_menu_callback(event)
             return
 
         elif data.startswith("glist_"):
@@ -563,8 +561,6 @@ class CallbackHandler(BaseHandler):
             return
 
     # ==================== HELPER METHODS ====================
-    # (rest of helper methods remain the same - show_out_names, show_out_repay_list, etc.)
-    # ... I'm keeping them as they were in your original code ...
 
     async def show_out_names(self, event, dtype, page):
         """Show names for outstanding (give_work/take_work)"""

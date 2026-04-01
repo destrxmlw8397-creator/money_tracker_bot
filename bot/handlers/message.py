@@ -111,6 +111,41 @@ class MessageHandler(BaseHandler):
         state = self.user_states[uid]
         
         try:
+            # ==================== PDF STATES (MUST BE FIRST) ====================
+            if state == "ST_PDF_MONTH":
+                # User is entering month for PDF (e.g., Jan-2026)
+                logger.info(f"Processing PDF MONTH state: {text}")
+                self.user_states.pop(uid)
+                file = generate_pdf(uid, text)
+                
+                if file:
+                    await self.client.send_file(
+                        event.chat_id, file,
+                        caption=t(uid, 'pdf_sent', text)
+                    )
+                    import os
+                    os.remove(file)
+                else:
+                    await event.respond(t(uid, 'pdf_no_data_month'), parse_mode=None)
+                return
+            
+            elif state == "ST_PDF_DATE":
+                # User is entering date for PDF (e.g., 01-01-2026)
+                logger.info(f"Processing PDF DATE state: {text}")
+                self.user_states.pop(uid)
+                file = generate_pdf(uid, get_current_month(event), history_filter=text)
+                
+                if file:
+                    await self.client.send_file(
+                        event.chat_id, file,
+                        caption=t(uid, 'pdf_today_sent', text)
+                    )
+                    import os
+                    os.remove(file)
+                else:
+                    await event.respond(t(uid, 'pdf_no_data'), parse_mode=None)
+                return
+            
             # ==================== OUTSTANDING STATES ====================
             if "ST_OUTAMT_" in state:
                 # User is entering amount for outstanding (give/take)
@@ -186,39 +221,6 @@ class MessageHandler(BaseHandler):
                     f"{t(uid, 'net')}: {net:.2f}",
                     buttons=[Button.inline(t(uid, 'back'), b"rep_main")]
                 )
-                return
-            
-            # ==================== PDF STATES ====================
-            elif state == "ST_PDF_MONTH":
-                # User is entering month for PDF (e.g., Jan-2026)
-                self.user_states.pop(uid)
-                file = generate_pdf(uid, text)
-                
-                if file:
-                    await self.client.send_file(
-                        event.chat_id, file,
-                        caption=t(uid, 'pdf_sent', text)
-                    )
-                    import os
-                    os.remove(file)
-                else:
-                    await event.respond(t(uid, 'pdf_no_data_month'))
-                return
-            
-            elif state == "ST_PDF_DATE":
-                # User is entering date for PDF (e.g., 01-01-2026)
-                self.user_states.pop(uid)
-                file = generate_pdf(uid, get_current_month(event), history_filter=text)
-                
-                if file:
-                    await self.client.send_file(
-                        event.chat_id, file,
-                        caption=t(uid, 'pdf_today_sent', text)
-                    )
-                    import os
-                    os.remove(file)
-                else:
-                    await event.respond(t(uid, 'pdf_no_data'))
                 return
             
             # ==================== WALLET STATES ====================

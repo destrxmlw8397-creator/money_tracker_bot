@@ -4,11 +4,14 @@ Handles /pdf command for generating PDF reports
 """
 
 import os
+import logging
 from telethon import Button
 from bot.handlers.base import BaseHandler
 from bot.utils.translations import t
 from bot.utils.helpers import get_current_month, get_current_date
 from bot.services.transaction_service import generate_pdf
+
+logger = logging.getLogger(__name__)
 
 
 class PDFHandler(BaseHandler):
@@ -37,7 +40,7 @@ class PDFHandler(BaseHandler):
             [Button.inline(t(user_id, 'cancel'), b"cancel_state")]
         ]
         
-        await event.respond(t(user_id, 'pdf_options'), buttons=buttons)
+        await event.respond(t(user_id, 'pdf_options'), buttons=buttons, parse_mode=None)
     
     async def generate_current_month_pdf(self, event):
         """
@@ -69,11 +72,17 @@ class PDFHandler(BaseHandler):
             event: Telegram event
         """
         user_id = event.sender_id
+        
+        # Clear any existing PDF state first
+        self.user_states.pop(user_id, None)
         self.user_states[user_id] = "ST_PDF_MONTH"
+        
+        logger.info(f"User {user_id} set to ST_PDF_MONTH state")
         
         await event.edit(
             t(user_id, 'pdf_month_prompt'),
-            buttons=[Button.inline(t(user_id, 'back'), b"pdf_main")]
+            buttons=[Button.inline(t(user_id, 'back'), b"pdf_main")],
+            parse_mode=None
         )
     
     async def generate_month_pdf(self, user_id, chat_id, month_input):
@@ -95,7 +104,7 @@ class PDFHandler(BaseHandler):
             )
             os.remove(file)
         else:
-            await self.client.send_message(chat_id, t(user_id, 'pdf_no_data_month'))
+            await self.client.send_message(chat_id, t(user_id, 'pdf_no_data_month'), parse_mode=None)
     
     async def generate_today_pdf(self, event):
         """
@@ -133,11 +142,17 @@ class PDFHandler(BaseHandler):
             event: Telegram event
         """
         user_id = event.sender_id
+        
+        # Clear any existing PDF state first
+        self.user_states.pop(user_id, None)
         self.user_states[user_id] = "ST_PDF_DATE"
+        
+        logger.info(f"User {user_id} set to ST_PDF_DATE state")
         
         await event.edit(
             t(user_id, 'pdf_date_prompt'),
-            buttons=[Button.inline(t(user_id, 'back'), b"pdf_main")]
+            buttons=[Button.inline(t(user_id, 'back'), b"pdf_main")],
+            parse_mode=None
         )
     
     async def generate_date_pdf(self, user_id, chat_id, date_input):
@@ -166,7 +181,7 @@ class PDFHandler(BaseHandler):
             )
             os.remove(file)
         else:
-            await self.client.send_message(chat_id, t(user_id, 'pdf_no_data'))
+            await self.client.send_message(chat_id, t(user_id, 'pdf_no_data'), parse_mode=None)
     
     def clear_user_state(self, user_id):
         """

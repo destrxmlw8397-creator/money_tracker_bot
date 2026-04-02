@@ -42,14 +42,18 @@ class MessageHandler(BaseHandler):
         uid = event.sender_id
         text = event.text.strip()
         
-        # Handle /undo command separately (kept here for simplicity)
+        # Handle /undo and /reset commands separately (kept here for simplicity)
         if text == '/undo':
             await self.undo_last_entry(event)
             return
         
-        # Handle /reset command separately
         if text == '/reset':
             await self.reset_data(event)
+            return
+        
+        # Skip any other command (starting with '/')
+        # Because they are handled by specific command handlers
+        if text.startswith('/'):
             return
         
         # Check if user is in a state (waiting for input)

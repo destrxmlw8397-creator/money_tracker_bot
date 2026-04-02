@@ -101,7 +101,7 @@ class MessageHandler(BaseHandler):
                 update_user_db(uid, amount, category, wallet, event=event)
                 
                 emoji = t(uid, 'deposit') if amount > 0 else t(uid, 'expense')
-                await event.reply(t(uid, 'entry_success', emoji, abs(amount), category, wallet), parse_mode='html')
+                await event.reply(t(uid, 'entry_success', emoji, abs(amount), category, wallet))
                 
             except Exception as e:
                 print(f"Error processing transaction: {e}")
@@ -155,8 +155,7 @@ class MessageHandler(BaseHandler):
                 
                 self.user_states.pop(uid)
                 await event.respond(t(uid, 'out_entry_success', name, amt),
-                                   buttons=[Button.inline(t(uid, 'back'), b"out_main")],
-                                   parse_mode='html')
+                                   buttons=[Button.inline(t(uid, 'back'), b"out_main")])
                 return
             
             elif "ST_OUTNEW_" in state:
@@ -176,8 +175,7 @@ class MessageHandler(BaseHandler):
                 
                 self.user_states.pop(uid)
                 await event.respond(t(uid, 'out_new_success', name, amt),
-                                   buttons=[Button.inline(t(uid, 'back'), b"out_main")],
-                                   parse_mode='html')
+                                   buttons=[Button.inline(t(uid, 'back'), b"out_main")])
                 return
             
             elif "ST_OUTREPAY_" in state:
@@ -212,8 +210,7 @@ class MessageHandler(BaseHandler):
                     f"{t(uid, 'total_income')}: {income:.2f}\n"
                     f"{t(uid, 'total_expense')}: {expense:.2f}\n"
                     f"{t(uid, 'net')}: {net:.2f}",
-                    buttons=[Button.inline(t(uid, 'back'), b"rep_main")],
-                    parse_mode='html'
+                    buttons=[Button.inline(t(uid, 'back'), b"rep_main")]
                 )
                 return
             
@@ -225,7 +222,7 @@ class MessageHandler(BaseHandler):
                 data = get_user_monthly_data(uid, get_current_month(event))
                 data['budget_limit'] = limit
                 BalanceRepository.update_monthly_data(uid, get_current_month(event), data)
-                await event.respond(t(uid, 'budget_set', limit), parse_mode='html')
+                await event.respond(t(uid, 'budget_set', limit))
                 return
             
             elif state == "ST_ADD_WALLET":
@@ -236,12 +233,12 @@ class MessageHandler(BaseHandler):
                 wallets = data.get('wallets', {})
                 
                 if wallet_name in wallets:
-                    await event.respond(t(uid, 'wallet_exists', wallet_name), parse_mode='html')
+                    await event.respond(t(uid, 'wallet_exists', wallet_name))
                 else:
                     wallets[wallet_name] = 0.0
                     data['wallets'] = wallets
                     BalanceRepository.update_monthly_data(uid, get_current_month(event), data)
-                    await event.respond(t(uid, 'wallet_added', wallet_name), parse_mode='html')
+                    await event.respond(t(uid, 'wallet_added', wallet_name))
                 return
             
             # ==================== GOAL STATES ====================
@@ -254,8 +251,7 @@ class MessageHandler(BaseHandler):
                 GoalRepository.add_or_update(uid, name, target)
                 self.user_states.pop(uid)
                 await event.respond(t(uid, 'goal_set', name),
-                                   buttons=[Button.inline(t(uid, 'back'), b"goal_main")],
-                                   parse_mode='html')
+                                   buttons=[Button.inline(t(uid, 'back'), b"goal_main")])
                 return
             
             elif "ST_SAVE_GOAL_" in state:
@@ -273,8 +269,7 @@ class MessageHandler(BaseHandler):
                 
                 self.user_states.pop(uid)
                 await event.respond(t(uid, 'goal_saved', amt, gname),
-                                   buttons=[Button.inline(t(uid, 'back'), b"glist_0")],
-                                   parse_mode='html')
+                                   buttons=[Button.inline(t(uid, 'back'), b"glist_0")])
                 return
             
             # ==================== TRANSFER STATES ====================
@@ -294,8 +289,7 @@ class MessageHandler(BaseHandler):
                 
                 if lifetime_balance < amt:
                     await event.respond(
-                        t(uid, 'insufficient_balance', w_from, lifetime_balance, amt),
-                        parse_mode='html'
+                        t(uid, 'insufficient_balance', w_from, lifetime_balance, amt)
                     )
                 else:
                     wallets[w_from] -= amt
@@ -316,8 +310,7 @@ class MessageHandler(BaseHandler):
                     
                     await event.respond(
                         t(uid, 'transfer_success', amt, w_from, w_to),
-                        buttons=[Button.inline(t(uid, 'main_menu'), b"cancel_state")],
-                        parse_mode='html'
+                        buttons=[Button.inline(t(uid, 'main_menu'), b"cancel_state")]
                     )
                 return
             
@@ -371,8 +364,7 @@ class MessageHandler(BaseHandler):
             self.user_states.pop(uid, None)
             await event.respond(
                 t(uid, 'invalid_input'),
-                buttons=[Button.inline(t(uid, 'back'), b"debt_main_menu")],
-                parse_mode='html'
+                buttons=[Button.inline(t(uid, 'back'), b"debt_main_menu")]
             )
     
     async def undo_last_entry(self, event):
@@ -404,9 +396,9 @@ class MessageHandler(BaseHandler):
             data['wallets'] = new_wallets
             BalanceRepository.update_monthly_data(uid, month_key, data)
             
-            await event.respond(t(uid, 'undo_success', last.get('category', 'Unknown')), parse_mode='html')
+            await event.respond(t(uid, 'undo_success', last.get('category', 'Unknown')))
         else:
-            await event.respond(t(uid, 'no_history'), parse_mode='html')
+            await event.respond(t(uid, 'no_history'))
     
     async def reset_data(self, event):
         """
@@ -424,7 +416,7 @@ class MessageHandler(BaseHandler):
             [Button.inline(t(uid, 'cancel'), b"cancel_state")]
         ]
         
-        await event.respond(t(uid, 'reset_confirm'), buttons=buttons, parse_mode='html')
+        await event.respond(t(uid, 'reset_confirm'), buttons=buttons)
     
     async def reset_full_database(self, event):
         """
@@ -441,4 +433,4 @@ class MessageHandler(BaseHandler):
         GoalHistoryRepository.delete_user_data(uid)
         OutstandingRepository.delete_user_data(uid)
         OutstandingHistoryRepository.delete_user_data(uid)
-        await event.edit(t(uid, 'reset_all_success'), parse_mode='html')
+        await event.edit(t(uid, 'reset_all_success'))

@@ -9,6 +9,7 @@ from bot.handlers.base import BaseHandler
 from bot.utils.translations import t
 from bot.utils.helpers import get_current_month
 from bot.database.repositories import BalanceRepository
+from bot.handlers.message import MessageHandler   # যোগ করা হয়েছে
 
 
 class WalletHandler(BaseHandler):
@@ -16,8 +17,8 @@ class WalletHandler(BaseHandler):
     Handler for wallet management commands
     """
     
-    # User states for wallet operations
-    user_states = {}
+    # আর নিজের user_states রাখার দরকার নেই
+    # user_states = {}   # এটি সরিয়ে ফেলুন
     
     # ==================== SET BUDGET ====================
     
@@ -29,7 +30,8 @@ class WalletHandler(BaseHandler):
             event: Telegram event
         """
         user_id = event.sender_id
-        self.user_states[user_id] = "ST_SET_BUDGET"
+        # শেয়ার্ড ডিকশনারি ব্যবহার করুন
+        MessageHandler.user_states[user_id] = "ST_SET_BUDGET"
         
         await event.respond(
             t(user_id, 'enter_budget'),
@@ -67,7 +69,7 @@ class WalletHandler(BaseHandler):
             event: Telegram event
         """
         user_id = event.sender_id
-        self.user_states[user_id] = "ST_ADD_WALLET"
+        MessageHandler.user_states[user_id] = "ST_ADD_WALLET"
         
         await event.respond(
             t(user_id, 'enter_wallet_name'),
@@ -212,7 +214,7 @@ class WalletHandler(BaseHandler):
     
     def get_user_state(self, user_id):
         """
-        Get user state
+        Get user state from shared dictionary
         
         Args:
             user_id: User ID
@@ -220,13 +222,13 @@ class WalletHandler(BaseHandler):
         Returns:
             str: User state or None
         """
-        return self.user_states.get(user_id)
+        return MessageHandler.user_states.get(user_id)
     
     def clear_user_state(self, user_id):
         """
-        Clear user state
+        Clear user state from shared dictionary
         
         Args:
             user_id: User ID
         """
-        self.user_states.pop(user_id, None)
+        MessageHandler.user_states.pop(user_id, None)

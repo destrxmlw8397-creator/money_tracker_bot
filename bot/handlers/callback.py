@@ -136,16 +136,16 @@ class CallbackHandler(BaseHandler):
             return
 
         elif data == "pdf_month_wise":
-            from bot.handlers.pdf import PDFHandler
-            PDFHandler.user_states[user_id] = "ST_PDF_MONTH"
+            from bot.handlers.message import MessageHandler
+            MessageHandler.user_states[user_id] = "ST_PDF_MONTH"
             await event.edit(t(user_id, 'pdf_month_prompt'),
                            buttons=[Button.inline(t(user_id, 'back'), b"pdf_main")],
                            parse_mode=None)
             return
 
         elif data == "pdf_main":
-            from bot.handlers.pdf import PDFHandler
-            PDFHandler.user_states.pop(user_id, None)
+            from bot.handlers.message import MessageHandler
+            MessageHandler.user_states.pop(user_id, None)
             buttons = [
                 [Button.inline(t(user_id, 'pdf_current'), b"pdf_current")],
                 [Button.inline(t(user_id, 'pdf_month_wise'), b"pdf_month_wise")],
@@ -167,8 +167,8 @@ class CallbackHandler(BaseHandler):
             return
 
         elif data == "pdf_date_wise":
-            from bot.handlers.pdf import PDFHandler
-            PDFHandler.user_states[user_id] = "ST_PDF_DATE"
+            from bot.handlers.message import MessageHandler
+            MessageHandler.user_states[user_id] = "ST_PDF_DATE"
             await event.edit(t(user_id, 'pdf_date_prompt'),
                            buttons=[Button.inline(t(user_id, 'back'), b"pdf_main")],
                            parse_mode=None)

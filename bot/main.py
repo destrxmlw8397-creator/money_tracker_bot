@@ -26,9 +26,9 @@ from bot.handlers.wallet import WalletHandler
 from bot.handlers.callback import CallbackHandler
 from bot.handlers.message import MessageHandler
 
-# Setup logging
+# Setup logging - লেভেল WARNING করা হয়েছে (শুধু ERROR, WARNING, CRITICAL দেখাবে)
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -45,6 +45,10 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_HEAD(self):
         self.send_response(200)
         self.end_headers()
+    
+    # হেলথ চেকের লগ বন্ধ করতে নিচের মেথডটি যোগ করুন (ঐচ্ছিক)
+    def log_message(self, format, *args):
+        pass
 
 
 def run_health_server():
@@ -148,10 +152,6 @@ class MoneyTrackerBot:
         @self.client.on(events.NewMessage(pattern='/delwallet'))
         async def delete_wallet_handler(event):
             await self.wallet_handler.delete_wallet(event)
-        
-        # ========== FIX: Removed duplicate /undo and /reset handlers ==========
-        # /undo and /reset are now handled only by the generic message handler below
-        # This prevents double processing of these commands
         
         @self.client.on(events.CallbackQuery)
         async def callback_handler(event):

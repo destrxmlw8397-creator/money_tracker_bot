@@ -101,26 +101,25 @@ class GoalHandler(BaseHandler):
         user_id = event.sender_id
         rows = GoalRepository.get_all(user_id)
         
-        if not rows:
-            await event.edit(t(user_id, 'no_goals'), buttons=[[Button.inline(t(user_id, 'back'), b"goal_main")]], parse_mode=None)
-            return
-        
+        # সবসময় goal_progress মেসেজ দেখাবে (গোল থাকুক বা না থাকুক)
+        msg = t(user_id, 'goal_progress')
         buttons = []
-        for row in rows:
-            percent = (row['saved'] / row['target'] * 100) if row['target'] > 0 else 0
-            buttons.append([
-                Button.inline(
-                    f"🎯 {row['name']} {percent:.0f}%",
-                    f"vgoal_{row['name']}"
-                )
-            ])
         
-        buttons.append([
-            Button.inline(t(user_id, 'back'), b"goal_main")
-        ])
+        if rows:
+            for row in rows:
+                percent = (row['saved'] / row['target'] * 100) if row['target'] > 0 else 0
+                buttons.append([
+                    Button.inline(
+                        f"🎯 {row['name']} {percent:.0f}%",
+                        f"vgoal_{row['name']}"
+                    )
+                ])
+        # গোল না থাকলে buttons খালি থাকবে, কিন্তু ব্যাক বাটন থাকবে
         
-        # MongoDB version uses edit for callback
-        await event.edit(t(user_id, 'goal_progress'), buttons=buttons, parse_mode=None)
+        # সবসময় ব্যাক বাটন যোগ করুন
+        buttons.append([Button.inline(t(user_id, 'back'), b"goal_main")])
+        
+        await event.edit(msg, buttons=buttons, parse_mode=None)
     
     async def show_goal_history(self, event, goal_name):
         """
